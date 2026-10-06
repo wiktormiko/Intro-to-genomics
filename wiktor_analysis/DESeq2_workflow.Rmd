@@ -1,0 +1,231 @@
+---
+title: "DESEq2 workflow"
+output: html_notebook
+---
+
+# DESEq2 vignette
+
+If you have any questions, check the [DESEq2 vignette](https://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html).
+
+# About the dataset
+
+This workflow uses the **airway** dataset (Bioconductor package `airway`), an RNA-seq experiment from [Himes et al. 2014, *PLoS ONE*](https://doi.org/10.1371/journal.pone.0099625) (GEO: [GSE52778](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE52778)).
+The code used to generate the tables can be found [Jean-Training/data/airway_generate_counts.R](../data/airway_generate_counts.R)
+
+- **Biological question:** how do human airway smooth muscle (ASM) cells respond to dexamethasone, a glucocorticoid used to treat asthma and inflammation?
+- **Design:** four ASM cell lines (`N61311`, `N052611`, `N080611`, `N061011`), each either left untreated (`untrt`) or treated with dexamethasone (`trt`).
+- **Size:** 8 samples (4 cell lines x 2 conditions) and 63,677 genes.
+- **Count matrix** (`airway_raw_counts.csv`): rows are genes (Ensembl IDs), columns are samples (SRA run IDs, e.g. `SRR1039508`). Values are raw, unnormalized read counts.
+- **Metadata** (`airway_metadata.csv`): one row per sample.
+  - `cell`: the cell line.
+  - `dex`: dexamethasone treatment (`trt` / `untrt`). This is the main variable of interest.
+  - `albut`: albuterol treatment. Every sample here is `untrt`, so it carries no information.
+  - `SampleName`, `Run`, `Experiment`, `Sample`, `BioSample`: GEO / SRA identifiers.
+  - `avgLength`: average read length.
+
+Full description:
+
+```{r}
+library(airway)
+vignette("airway")
+```
+
+Because each cell line appears in both conditions, the design is **paired**.
+In the DESeq2 model, `cell` should be included as a covariate alongside `dex`.
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(DESeq2)
+library(annotables)
+```
+
+# Import the data
+
+```{r}
+raw_counts <- read.csv("data/airway_raw_counts.csv", row.names = 1)
+mtd <- read.csv("data/airway_metadata.csv", row.names = 1)
+```
+
+```{r}
+head(raw_counts)
+```
+
+Count matrix is a table where rows correspond to gene names and columns - to samples.
+The gene names are encoded in "ENSEMBL" system.
+We will convert those names to SYMBOLs - regular gene names.
+
+```{r}
+head(mtd)
+```
+
+Metadata contains information about samples.
+Each row is a sample and each column describes a metric.
+For example, we can put information about treatment, batch, collection date, patient ID, etc.
+
+It is important that the count table and metadata are matching.
+Column names of the count matrix and row names of the metadata have to be the same!
+
+We can ensure those two are matching by running this:
+
+```{r}
+all(rownames(mtd) == colnames(raw_counts))
+```
+
+if they're not in the right order we can use `match()` to reorder one table so it lines up with the other:
+
+```{r}
+raw_counts <- raw_counts[, match(rownames(mtd), colnames(raw_counts))]
+```
+
+# Pre–filtering
+
+## Remove low count genes
+
+It is not necessary to filter out low count genes, because DESEq pipeline does it automatically (`independent filtering`), but applying a small cutoff might makes the object smaller and require less computational power and memory.
+This cutoff is taken from the vignette.
+It's also common to use `filterByExp` from edgeR package
+
+`smallestGroupSize` - we have 4 treated and 4 controls so we will use 4.
+
+```{r}
+table(mtd$dex)
+```
+
+```{r}
+ngenes_before <- nrow(raw_counts)
+```
+
+```{r}
+smallestGroupSize <- 4
+keep <- rowSums(raw_counts >= 10) >= smallestGroupSize
+raw_counts <- raw_counts[keep,]
+```
+
+```{r}
+ngenes_after <- nrow(raw_counts)
+cat("#genes before filtering: ", ngenes_before, "\n #genes after filtering: ", ngenes_after)
+```
+
+1.  `raw_counts >= 10` gives a table of TRUE/FALSE with the same shape as the counts. Each cell asks whether this gene had at least 10 reads in this sample.
+2.  `rowSums(...)` adds up the TRUE values for each gene, giving the number of samples where the gene reached 10 reads.
+3.  `>= smallestGroupSize` asks whether that number is at least the size of your smallest experimental group.
+
+A gene that is truly different between conditions should have decent counts in all the samples of at least one group.
+If your smallest group has 4 samples, requiring at least 4 samples with 10 or more reads means a gene could pass by being expressed in just one condition, such as a gene that is switched on only after treatment.
+A gene with high counts in only 1 of 8 samples is most likely noise or an outlier, so it is dropped.
+
+## Convert ENSEMBL to SYMBOL
+
+Before we do any analysis, we need to do a little bit of a cleanup.
+
+First we need to convert the ENS to SYMBOL.
+We will use `annotables` package, that provides per gene information for different genome versions.
+`airway` dataset uses Grch37 genome assembly.
+
+```{r}
+head(grch37)
+```
+
+We will use this table to build our own gene annotation table.
+
+```{r}
+gene_anno <- data.frame(ensgene = rownames(raw_counts)) %>%
+  left_join(grch37, by= "ensgene") %>%
+  distinct(symbol, .keep_all = TRUE) # sometimes one ENSEMBL might have two different SYMBOLs or ENTREZ. It might happen where there are multiple isoforms of one gene etc. This makes sure that when an ENS is doubled, we only take the first observation. 
+
+```
+
+## Retain only protein coding genes
+
+As you can see there are more than 60,000 genes in our dataset (before filtering).
+Human genome has around 20,000 genes, so how is it possible?
+Let's investigate `biotype` column
+
+```{r}
+table(gene_anno$biotype)
+```
+
+A lot of the transcripts are not even protein coding genes.
+Lots of them are non-coding RNA, rRNA etc.
+In this analysis we only care about protein coding genes.
+
+First we will subset `gene_anno` to only protein coding genes and use that table to subset.
+
+```{r}
+gene_anno <- gene_anno %>%
+  filter(biotype == 'protein_coding')
+dim(gene_anno)
+```
+
+```{r}
+raw_counts <- raw_counts[gene_anno$ensgene, ] # retain only protein coding genes
+rownames(raw_counts) <- gene_anno$symbol # replace ENS with symbols count table
+rownames(gene_anno) <- gene_anno$symbol
+```
+
+```{r}
+dim(raw_counts)
+```
+
+```{r}
+head(raw_counts)
+```
+
+We are left with \~13,000 genes
+
+# DESeq2 workflow
+
+We prepared the metadata and count matrix.
+We are ready to create a deseq object (`dds`).
+IT IS IMPORTANT THAT THE COUNTS ARE RAW!
+If the counts are integers, they are most likely raw counts.
+
+## Design
+
+The **design** is a formula that tells DESeq2 which factors may explain differences in gene expression between your samples.
+It is written as `~ variable1 + variable2`, where each variable is a column name from the metadata table - just like linear regression.
+
+**Why is it important?** DESeq2 fits a model for every gene using the design.
+It uses that model to separate the effect you care about (here, the drug) from other sources of variation (here, the cell line).
+If the design is wrong or incomplete, the variation you did not account for stays in the noise.
+That can hide real differences or create false ones.
+The design cannot be fixed after the fact without re-running the analysis, so it is worth getting right before you create `dds`.
+
+**How do we decide what goes there?**
+
+1.  Start from your biological question. We want to know which genes change with dexamethasone, so `dex` goes in.
+2.  Add the other variables that are known to affect expression and that you want to correct for, such as cell line, batch, sex, or age. Here the same four cell lines appear both treated and untreated, and different cell lines naturally express genes differently, so `cell` goes in. This is called paired design.
+3.  Put the variable of interest **last**. DESeq2 tests the last variable in the formula by default.
+4.  Only use columns that exist in the metadata, and only the ones that matter. Identifiers (sample name, run ID) are different for every sample and must not go in the design. Variables that are constant (like `albut` here) carry no information. Don't add variables just because you have them, since each one uses up samples that could have gone into the real comparison.
+
+So our design is `~ cell + dex`.
+In plain words: "compare treated and untreated samples, but control for individual effects of each cell line").
+
+**Paired design:** the same cell line (or patient, animal, etc.) is measured in both conditions, so every treated sample has an untreated "partner".
+
+**Why control for it?** Cell lines differ from each other far more than we expect treatment to change a typical gene.
+If `cell` is not in the design, that cell-to-cell variation lands in the noise, so real drug effects are harder to detect.
+With `cell` in the design, we account for these cell-line specific effects, focusing on the drug effect.
+
+## Create a DESeq object
+
+```{r}
+dds <- DESeqDataSetFromMatrix(countData = raw_counts, 
+                              colData = mtd, 
+                              rowData = gene_anno,
+                              design = ~ cell + dex)
+```
+
+```{r}
+dds
+```
+
+dds object contains all this individual information and tables in one object.
+Each element can be accessed
+
+```{r}
+dds@design
+head(dds@colData) # metadata
+head(counts(dds)) # counts
+head(rowData(dds)) # gene_anno
+```
