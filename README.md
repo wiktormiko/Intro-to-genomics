@@ -1,2 +1,2 @@
-# Jean-Training
-Jean training on genomics data analysis
+# Jieyin-Training
+Jieyin training on genomics data analysis
