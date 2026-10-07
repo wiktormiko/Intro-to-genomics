@@ -10,7 +10,7 @@ If you have any questions, check the [DESEq2 vignette](https://bioconductor.org/
 # About the dataset
 
 This workflow uses the **airway** dataset (Bioconductor package `airway`), an RNA-seq experiment from [Himes et al. 2014, *PLoS ONE*](https://doi.org/10.1371/journal.pone.0099625) (GEO: [GSE52778](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE52778)).
-The code used to generate the tables can be found [Jean-Training/data/airway_generate_counts.R](../data/airway_generate_counts.R)
+The code used to generate the tables can be found [Jieyin-Training/data/airway_generate_counts.R](../data/airway_generate_counts.R)
 
 - **Biological question:** how do human airway smooth muscle (ASM) cells respond to dexamethasone, a glucocorticoid used to treat asthma and inflammation?
 - **Design:** four ASM cell lines (`N61311`, `N052611`, `N080611`, `N061011`), each either left untreated (`untrt`) or treated with dexamethasone (`trt`).
@@ -37,9 +37,14 @@ In the DESeq2 model, `cell` should be included as a covariate alongside `dex`.
 library(tidyverse)
 library(DESeq2)
 library(annotables)
+library(PCAtools)
 ```
 
 # Import the data
+
+```{r}
+getwd()
+```
 
 ```{r}
 raw_counts <- read.csv("data/airway_raw_counts.csv", row.names = 1)
@@ -131,7 +136,8 @@ We will use this table to build our own gene annotation table.
 ```{r}
 gene_anno <- data.frame(ensgene = rownames(raw_counts)) %>%
   left_join(grch37, by= "ensgene") %>%
-  distinct(symbol, .keep_all = TRUE) # sometimes one ENSEMBL might have two different SYMBOLs or ENTREZ. It might happen where there are multiple isoforms of one gene etc. This makes sure that when an ENS is doubled, we only take the first observation. 
+  distinct(symbol, .keep_all = TRUE) %>% # sometimes one ENSEMBL might have two different SYMBOLs or ENTREZ. It might happen where there are multiple isoforms of one gene etc. This makes sure that when an ENS is doubled, we only take the first observation.
+  rename(gene_start = start, gene_end = end, gene_strand = strand) # start/end/strand are reserved names in rowData (GRanges), so DESeq2 would error
 
 ```
 
@@ -173,7 +179,7 @@ head(raw_counts)
 
 We are left with \~13,000 genes
 
-# DESeq2 workflow
+# DESeq2 workflow: Part I
 
 We prepared the metadata and count matrix.
 We are ready to create a deseq object (`dds`).
@@ -229,3 +235,195 @@ head(dds@colData) # metadata
 head(counts(dds)) # counts
 head(rowData(dds)) # gene_anno
 ```
+
+## Running DESeq
+
+`DESeq()` this function does the following steps:
+
+1.  estimation of size factors - normalization
+2.  estimation of dispersion
+3.  Negative Binomial GLM fitting and Wald statistics - prepares for differential expression
+
+These steps are basically normalization and preparation for differential expression testing (log2 fold change and p-value) and are almost always run with default parameters.
+
+```{r}
+dds <- DESeq(dds)
+```
+
+```{r}
+dds
+```
+
+You can notice that after running this function, there are new elements added to the dds object: new assays, sizeFactor in colData etc.
+You can also access normalized counts.
+Notice how they changed from integers to decimals.
+
+```{r}
+head(counts(dds, normalize=TRUE))
+# raw counts can still be obtained with
+# counts(dds, normalize=FALSE)
+```
+
+# Principal component analysis
+
+After RNA-seq you have a matrix of counts: 13,000 genes (rows) by 8 samples.
+Each sample is a point in 13,000-dimensional space, which you can't look at.
+But many genes move together.
+For example, hundreds of inflammation genes rise and fall as a group.
+So the data really vary along far fewer independent directions than 13,000.
+
+PCA finds new axes, called principal components, that are weighted combinations of genes.
+PC1 is the single direction along which the samples spread out the most.
+PC2 is the next-most-variable direction, at right angles to PC1, and so on.
+Plotting each sample's position on PC1 against PC2 gives a scatterplot.
+Samples close together have similar overall expression profiles.
+The axis labels report the percentage of total variance each PC captures, which tells you how much of the full picture the plot actually shows.
+
+PCA is a quality-control and exploration step.
+It is *not* part of the differential expression test itself.
+You use it to ask a few questions:
+
+- Do replicates of the same condition cluster together?
+
+- Does PC1 separate your biological groups (treated vs. control), or does it separate something unwanted, like sequencing batch, sex, or the day samples were processed?
+  If batch dominates, you'd add it to your design formula (`~ batch + condition`).
+
+- Is there an outlier sample that looks like neither group?
+
+PCA requires data transformation that is different that what we did with `DESeq()` function.
+We need to apply variance-stabilizing transformation, which puts genes on a comparable scale.
+To do so, we will use `vst()` function.
+
+```{r}
+vsd <- vst(dds, blind=FALSE)
+```
+
+```{r}
+vsd
+```
+
+I will show two methods of running PCA: one is built in DESeq2 and is simpler, and another using `PCAtools` package, which I prefer because it gives me more control.
+
+1.  DESeq default
+
+```{r}
+plotPCA(vsd, intgroup=c("cell", "dex"))
+```
+
+There is a message saying `using ntop=500 top features by variance`.
+Most of the genes are not highly variable across samples (e.g. house keeping genes) and they are not very informative of sample composition and sample-to-sample differences.
+That's why we use a fraction genes with the highest variance - they are the most informative ones, because they vary the most across samples.
+`plotPCA` uses top 500 most highly variable genes by default.
+
+2.  Using `PCAtools`
+
+```{r}
+vsd %>%
+  assay %>%
+  pca(., vsd@colData, removeVar = 0.9) %>% # remove 90% of lower variance -> retains top 10% most variable genes
+  biplot(colby = "cell",  shape = 'dex', legendPosition = 'right', lab = NULL )
+```
+
+Color represents cell line and shape represents treatment status.
+Thanks to this we can easily identify the main sources of variation:
+
+- PC1 explains 50% of variation and is driven by dex (treatment status) - triangles and dots are clearly separated on the X axis.
+  This is great, because it means that the treatment made a real difference
+
+- PC2 explains 20% variation and is driven by cell line - different colors separate along the Y axis, with the blue color separating the most from the rest.
+  It is expected to see such spread between biological replicates, because each replicate is a separate cell line.
+  There are differences in baseline expression between different cell lines, which is why we see such separation on PC2.
+  This is also why we included cell line in the design - we don't want the differences between cell lines mask the effect of treatment, especially in a paired design.
+
+We can color or shape the plot by every variable that exist in our metadata column.
+It is a good practice to play with them, because it might help identify sources of technical variability that can be accounted for in the DESeq design.
+
+# DESeq2 workflow: Part II
+
+## Differential expression test
+
+Now that we normalized the data and did a QC check with PCA, we can perform Differential Gene Expression - the clue of the analysis.
+In DGE we look for differences in gene expression across two different conditions.
+For example: Gene A is 2x highly expressed in the treated group than untreated.
+We will use `results()` function that return a table with log2 fold change difference between group 1 and group 2 and a p-value.
+We need to specify `contrast` which takes a vector of characters: `c(column in metadata, group 1, group 2)`.
+Here, we want to investigate the effect of dexamethasone treatment, so we will use dex column and compare trt vs. untrt
+
+```{r}
+deg_table <- results(dds, contrast = c("dex", "trt", "untrt"), alpha = 0.05) # alpha is the p-value threshold to whether call a gene significant or not. 
+```
+
+We can obtain a summary of our results
+
+```{r}
+summary(deg_table)
+```
+
+Out of 13055 tested genes 2023 are expressed higher after the treatment than in control (upregulated) and 1810 are expressed lower after the treatment than in the control (downregulated)
+
+```{r}
+head(deg_table)
+```
+
+`deg_table` is the main result of the analysis.
+It has one row per gene and answers the question: "did this gene change after dexamethasone treatment, and by how much?" The columns are:
+
+- `baseMean` - average normalized expression of the gene across all samples. Tells you how highly the gene is expressed overall.
+- `log2FoldChange` - the size and direction of the change (treated vs. untreated). A value of 1 means 2x higher in treated, -1 means 2x lower, 0 means no change.
+- `lfcSE` - standard error of the log2 fold change, i.e. how uncertain that estimate is.
+- `stat` - the Wald test statistic (`log2FoldChange / lfcSE`). The p-value is derived from it.
+- `pvalue` - the probability of seeing a change at least this large if the gene was **not** truly affected by the treatment.
+- `padj` - the p-value adjusted for multiple testing. **This is the value to use to call genes significant.**
+
+## Adjusted p-value and multiple testing correction
+
+A p-value of 0.05 means that there is a 5% chance of getting a result this extreme just by luck, even if nothing is going on.
+That is fine for one test, but here we test \~13,000 genes at once.
+If none of the genes were truly changed, we would still expect 0.05 × 13,000 = **\~650 genes** with p \< 0.05 purely by chance.
+These false positives would be mixed in with the real hits, and we could not tell which are which.
+
+```{r}
+sum(deg_table$pvalue < 0.05)
+```
+
+If we hadn't correct the p-value for multiple testing, we would have to expect that 13% of "significant" genes could be actually not significant - false positive
+
+**Multiple testing correction** fixes this by making the threshold stricter the more genes we test.
+DESeq2 uses the Benjamini-Hochberg method, which controls the **false discovery rate (FDR)**.
+The adjusted p-value (`padj`) is the expected proportion of false positives among the genes called significant at that cutoff.
+For example, if we keep all genes with `padj` \< 0.05, we accept that about 5% of them may be false positives.
+
+```{r}
+0.05 * sum(deg_table$padj < 0.05)
+```
+
+A useful metric or test to check if our differential expression test was well calibrated and the results are reliable is to look the distribution of nominal (raw) p-values
+
+- If the test is well calibrated, genes with no real effect (nulls) have p-values spread evenly between 0 and 1.
+  Genes with a real effect pile up near 0.
+  A healthy histogram is therefore a flat floor with a spike at the left edge.
+  The height of the flat part gives a rough sense of how many genes are truly unchanged.expected, before you trust the padj values.
+
+- Uniform shape with no spike: there is little or no signal, or the experiment is underpowered.
+
+- Hill-shaped or skewed toward 1: the test is too conservative.
+  This often points to a wrong variance or dispersion estimate, or to a problem in the pre-filtering.
+
+- A spike near 0 plus an excess of p-values near 1: the model is probably misspecified, for example a missing batch or covariate in the design.
+
+- Strange spikes at specific values: these usually come from low-count genes with discrete p-values.
+  Filtering low-count genes (which the workflow already does) removes most of them.
+
+Why it matters.
+Multiple testing correction, including Benjamini-Hochberg, assumes the null p-values are uniform.
+If they aren't, padj and the FDR it promises are unreliable, and the list of significant genes may contain many more false positives, or miss many more real ones, than stated.
+
+```{r}
+hist(deg_table$pvalue)
+```
+
+In our case the histogram looks perfect - our test is well-calibrated.
+
+## Volcano Plot
+
+enhanced volcano and custom
