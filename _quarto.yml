@@ -2,7 +2,7 @@ project:
   type: website
   render:
     - index.qmd
-    - "*.Rmd"
+    - "vignettes/*.Rmd"
 
 execute:
   freeze: true   # outputs are computed locally and committed in _freeze/; CI never runs R
@@ -18,7 +18,7 @@ website:
         text: Home
       - section: "Differential expression"
         contents:
-          - DESeq2_workflow.Rmd
+          - vignettes/DESeq2_workflow.Rmd
   page-footer: "Intro to genomics"
 
 format:

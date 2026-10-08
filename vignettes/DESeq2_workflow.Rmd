@@ -10,7 +10,7 @@ If you have any questions, check the [DESEq2 vignette](https://bioconductor.org/
 # About the dataset
 
 This workflow uses the **airway** dataset (Bioconductor package `airway`), an RNA-seq experiment from [Himes et al. 2014, *PLoS ONE*](https://doi.org/10.1371/journal.pone.0099625) (GEO: [GSE52778](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE52778)).
-The code used to generate the tables can be found [Jieyin-Training/data/airway_generate_counts.R](../data/airway_generate_counts.R)
+The code used to generate the tables can be found [data/airway_generate_counts.R](https://github.com/wiktormiko/Intro-to-genomics/blob/main/vignettes/data/airway_generate_counts.R)
 
 - **Biological question:** how do human airway smooth muscle (ASM) cells respond to dexamethasone, a glucocorticoid used to treat asthma and inflammation?
 - **Design:** four ASM cell lines (`N61311`, `N052611`, `N080611`, `N061011`), each either left untreated (`untrt`) or treated with dexamethasone (`trt`).
