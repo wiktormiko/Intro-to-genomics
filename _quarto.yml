@@ -4,9 +4,6 @@ project:
     - index.qmd
     - "*.Rmd"
 
-execute:
-  freeze: true   # outputs are computed locally and committed in _freeze/; CI never runs R
-
 website:
   title: "Intro to genomics"
   navbar: false
