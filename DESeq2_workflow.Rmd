@@ -26,6 +26,7 @@ The code used to generate the tables can be found [Jieyin-Training/data/airway_g
 Full description:
 
 ```{r, message=FALSE, warning=FALSE}
+Sys.setenv(LANGUAGE = "en") # keep R messages in English regardless of system language
 library(airway)
 vignette("airway")
 ```

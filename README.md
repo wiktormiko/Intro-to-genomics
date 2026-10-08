@@ -11,4 +11,6 @@ After editing an `.Rmd`:
 2. Commit the `.Rmd` **and** the updated `_freeze/` folder.
 3. Push to `main`. GitHub assembles the pages and publishes them.
 
+Each page's first code chunk should set `Sys.setenv(LANGUAGE = "en")`, otherwise R messages follow the system language (Polish on this Mac when rendered from a terminal).
+
 To add a page, list the new file in the sidebar in `_quarto.yml`.
