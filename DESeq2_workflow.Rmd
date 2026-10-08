@@ -25,7 +25,7 @@ The code used to generate the tables can be found [Jieyin-Training/data/airway_g
 
 Full description:
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 library(airway)
 vignette("airway")
 ```
@@ -211,7 +211,7 @@ With `cell` in the design, we account for these cell-line specific effects, focu
 
 ## Create a DESeq object
 
-```{r}
+```{r, warning=FALSE}
 dds <- DESeqDataSetFromMatrix(countData = raw_counts, 
                               colData = mtd, 
                               rowData = gene_anno,
@@ -302,7 +302,7 @@ I will show two methods of running PCA: one is built in DESeq2 and is simpler, a
 
 1.  DESeq default
 
-```{r}
+```{r, warning=FALSE}
 plotPCA(vsd, intgroup=c("cell", "dex"))
 ```
 
@@ -313,7 +313,7 @@ That's why we use a fraction genes with the highest variance - they are the most
 
 2.  Using `PCAtools`
 
-```{r}
+```{r, warning=FALSE}
 vsd %>%
   assay %>%
   pca(., vsd@colData, removeVar = 0.9) %>% # remove 90% of lower variance -> retains top 10% most variable genes
@@ -422,4 +422,8 @@ In our case the histogram looks perfect - our test is well-calibrated.
 
 ## Volcano Plot
 
-enhanced volcano and custom
+enhanced volcano and custom plot
+
+```{r}
+print(dds)
+```
