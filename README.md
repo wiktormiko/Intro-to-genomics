@@ -1,2 +1,1 @@
-# Jieyin-Training
-Jieyin training on genomics data analysis
+# Intro to genomics
