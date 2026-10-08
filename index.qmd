@@ -1,0 +1,9 @@
+---
+title: "Intro to genomics"
+---
+
+Tutorials and vignettes for getting started with genomics data analysis in R.
+
+## Contents
+
+- [DESeq2 workflow](DESeq2_workflow.Rmd): differential expression analysis of the `airway` RNA-seq dataset.

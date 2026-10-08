@@ -1,0 +1,34 @@
+project:
+  type: website
+  render:
+    - index.qmd
+    - "*.Rmd"
+
+execute:
+  freeze: true   # outputs are computed locally and committed in _freeze/; CI never runs R
+
+website:
+  title: "Intro to genomics"
+  navbar: false
+  search: true
+  sidebar:
+    style: docked
+    contents:
+      - href: index.qmd
+        text: Home
+      - section: "Differential expression"
+        contents:
+          - DESeq2_workflow.Rmd
+  page-footer: "Intro to genomics"
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    toc-title: "On this page"
+    number-sections: false
+    code-fold: false
+    code-copy: true
+    code-tools: false
+    df-print: paged

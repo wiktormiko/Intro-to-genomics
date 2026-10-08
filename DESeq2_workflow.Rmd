@@ -82,7 +82,7 @@ raw_counts <- raw_counts[, match(rownames(mtd), colnames(raw_counts))]
 
 ## Remove low count genes
 
-It is not necessary to filter out low count genes, because DESEq pipeline does it automatically (`independent filtering`), but applying a small cutoff might makes the object smaller and require less computational power and memory.
+It is not necessary to filter out low count genes, because DESEq pipeline does it automatically (`independent filtering`), but applying a small cutoff might make the object smaller and require less computational power and memory.
 This cutoff is taken from the vignette.
 It's also common to use `filterByExp` from edgeR package
 
