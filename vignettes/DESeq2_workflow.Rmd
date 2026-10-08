@@ -1,7 +1,18 @@
 ---
 title: "DESEq2 workflow"
 output: html_notebook
+editor_options: 
+  chunk_output_type: inline
 ---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  fig.width  = 5,
+  fig.height = 4,
+  dpi        = 90,
+  fig.align  = "center"
+)
+```
 
 # DESEq2 vignette
 
@@ -39,6 +50,7 @@ library(tidyverse)
 library(DESeq2)
 library(annotables)
 library(PCAtools)
+library(EnhancedVolcano)
 ```
 
 # Import the data
@@ -63,6 +75,8 @@ head(mtd)
 Metadata contains information about samples.
 Each row is a sample and each column describes a metric.
 For example, we can put information about treatment, batch, collection date, patient ID, etc.
+This is a publicly available dataset and the metadata info is shared.
+If you perform the experiment yourself, it is important to create such table yourself with as many details about a sample as you can.
 
 It is important that the count table and metadata are matching.
 Column names of the count matrix and row names of the metadata have to be the same!
@@ -212,6 +226,12 @@ With `cell` in the design, we account for these cell-line specific effects, focu
 
 ## Create a DESeq object
 
+Let's relevel the factors in `dex` column to make sure that untrt is the reference.
+
+```{r}
+mtd$dex <- factor(mtd$dex, levels = c('untrt', 'trt'))
+```
+
 ```{r, warning=FALSE}
 dds <- DESeqDataSetFromMatrix(countData = raw_counts, 
                               colData = mtd, 
@@ -344,25 +364,36 @@ In DGE we look for differences in gene expression across two different condition
 For example: Gene A is 2x highly expressed in the treated group than untreated.
 We will use `results()` function that return a table with log2 fold change difference between group 1 and group 2 and a p-value.
 We need to specify `contrast` which takes a vector of characters: `c(column in metadata, group 1, group 2)`.
-Here, we want to investigate the effect of dexamethasone treatment, so we will use dex column and compare trt vs. untrt
+Here, we want to investigate the effect of dexamethasone treatment, so we will use dex column and compare trt vs. untrt.
+Alternatively, we can use `name` parameter.
+The names of coefs can be checked with `resultsNames`.
+Sometimes, in complex designs, not all comparisons are generated.
+In that case we can always stick to `contrast`
 
 ```{r}
-deg_table <- results(dds, contrast = c("dex", "trt", "untrt"), alpha = 0.05) # alpha is the p-value threshold to whether call a gene significant or not. 
+resultsNames(dds)
+```
+
+```{r}
+res <- results(dds, name = "dex_trt_vs_untrt", alpha = 0.05) # alpha is the p-value threshold to whether call a gene significant or not.
+
+# alternatively (gives the same numbers, but lfcShrink() cannot be given this res, because it needs the coefficient name)
+# res <- results(dds, contrast = c("dex", "trt", "untrt"), alpha = 0.05)
 ```
 
 We can obtain a summary of our results
 
 ```{r}
-summary(deg_table)
+summary(res)
 ```
 
 Out of 13055 tested genes 2023 are expressed higher after the treatment than in control (upregulated) and 1810 are expressed lower after the treatment than in the control (downregulated)
 
 ```{r}
-head(deg_table)
+head(res)
 ```
 
-`deg_table` is the main result of the analysis.
+`res` is the main result of the analysis.
 It has one row per gene and answers the question: "did this gene change after dexamethasone treatment, and by how much?" The columns are:
 
 - `baseMean` - average normalized expression of the gene across all samples. Tells you how highly the gene is expressed overall.
@@ -380,7 +411,7 @@ If none of the genes were truly changed, we would still expect 0.05 × 13,000 = 
 These false positives would be mixed in with the real hits, and we could not tell which are which.
 
 ```{r}
-sum(deg_table$pvalue < 0.05)
+sum(res$pvalue < 0.05)
 ```
 
 If we hadn't correct the p-value for multiple testing, we would have to expect that 13% of "significant" genes could be actually not significant - false positive
@@ -391,7 +422,7 @@ The adjusted p-value (`padj`) is the expected proportion of false positives amon
 For example, if we keep all genes with `padj` \< 0.05, we accept that about 5% of them may be false positives.
 
 ```{r}
-0.05 * sum(deg_table$padj < 0.05)
+0.05 * sum(res$padj < 0.05)
 ```
 
 A useful metric or test to check if our differential expression test was well calibrated and the results are reliable is to look the distribution of nominal (raw) p-values
@@ -415,16 +446,89 @@ Why it matters.
 Multiple testing correction, including Benjamini-Hochberg, assumes the null p-values are uniform.
 If they aren't, padj and the FDR it promises are unreliable, and the list of significant genes may contain many more false positives, or miss many more real ones, than stated.
 
-```{r}
-hist(deg_table$pvalue)
+```{r, fig.width=3, fig.height=3}
+hist(res$pvalue)
 ```
 
 In our case the histogram looks perfect - our test is well-calibrated.
 
-## Volcano Plot
+## LFC shrinking
 
-enhanced volcano and custom plot
+`lfcShrink()` replaces the noisy maximum-likelihood log2 fold changes from `DESeq()` with empirical Bayes estimates pulled toward zero.
+For genes with low counts or high dispersion, the raw estimates can be large by chance, and shrinkage reduces them in proportion to how little information the gene carries.
+Genes with strong evidence barely move.
+
+It is worth using whenever fold change magnitude matters: volcano and MA plots, ranking genes by LFC (including GSEA inputs), and applying an LFC cutoff.
 
 ```{r}
-print(dds)
+res <- lfcShrink(dds, coef = 'dex_trt_vs_untrt', res = res ,type='apeglm')
 ```
+
+## Volcano Plot
+
+Volcano plots are a common way to display DGE results.
+Each point is a gene, with log2 fold change on the x-axis and -log10 adjusted p-value on the y-axis, so genes with large, significant changes sit in the upper corners.
+
+DESeq2 doesn't have any built-in volcano plot function.
+We can use `EnhancedVolcano` package that offers quick plotting functions.
+I do recommend writing your own custom plotting functions.
+First of all, you have more control of what is shown and the aesthetics, but it also help you understand the data structure better.
+
+Let's test EnhancedVolcano first.
+
+```{r, warning=FALSE, fig.width=5, fig.height=6}
+EnhancedVolcano(res,
+                lab = rownames(res),
+                x = 'log2FoldChange',
+                y = 'padj',
+                title = 'Dex: trt vs. untrt', subtitle = NULL,
+                pCutoff = 0.05,
+                FCcutoff = 0,
+                pointSize = 1.0)
+```
+
+**Let's create a custom volcano plot**
+
+1.  Customize the `res` table.
+    a.  add `diffexpressed` column with values: UP, DOWN, NS
+    b.  add `delabel` column that will be used to label top DEGs on the volcano
+
+```{r}
+padj_cutoff <- 0.05
+lfc_cutoff <- 0
+
+deg_table <- res %>%
+  data.frame() %>%
+  mutate(geneid = rownames(.)) %>%
+  filter(!is.na(padj)) %>%
+  mutate(
+    diffexpressed = case_when(padj > padj_cutoff ~ "NS",
+                              log2FoldChange > lfc_cutoff & padj < padj_cutoff ~ "UP",
+                              log2FoldChange < -lfc_cutoff & padj < padj_cutoff ~ "DOWN",
+                              TRUE ~ "NS"))
+
+deg_table <- deg_table %>%
+  mutate(delabel = ifelse(geneid %in% slice_min(., padj, n = 30)$geneid, geneid, NA))
+```
+
+```{r}
+head(deg_table)
+table(deg_table$diffexpressed)
+```
+
+2.  Built a volcano plot with ggplot2
+
+```{r, warning=FALSE}
+ggplot(deg_table, aes(x=log2FoldChange, y=-log10(padj), color = diffexpressed, label = delabel)) +
+  geom_point(size = 1) +
+  geom_text_repel(show.legend = FALSE) + 
+  geom_vline(xintercept = lfc_cutoff, linetype= 'dashed', color = 'gray') +
+  geom_hline(yintercept = padj_cutoff,linetype= 'dashed', color = 'gray') +
+  scale_color_manual(values = c(DOWN = '#2E6DB4', NS = "gray40", UP="#D6403A"))+ 
+  theme_bw() +
+  theme(panel.grid = element_blank()) +
+  coord_cartesian() +
+  ggtitle('Dex: trt vs. untrt')
+```
+
+\
