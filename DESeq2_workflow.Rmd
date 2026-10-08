@@ -43,10 +43,6 @@ library(PCAtools)
 # Import the data
 
 ```{r}
-getwd()
-```
-
-```{r}
 raw_counts <- read.csv("data/airway_raw_counts.csv", row.names = 1)
 mtd <- read.csv("data/airway_metadata.csv", row.names = 1)
 ```
