@@ -1,7 +1,10 @@
 ---
 title: "DESEq2 workflow"
-output: html_notebook
-editor_options: 
+author: Wiktor Mikolajczak
+output:
+  html_document:
+    df_print: paged
+editor_options:
   chunk_output_type: inline
 ---
 
@@ -14,9 +17,41 @@ knitr::opts_chunk$set(
 )
 ```
 
-# DESEq2 vignette
+# Note
+
+Use this vignette as a general guideline, not a ground truth.
+There is no one way to analyze genomics data.
+Sometimes you have to adjust your analysis based on your research question, experimental design etc.
+
+In the future you will analyze genomic data that you or other people generated.
+It is vital that, before any analysis, you familiarize yourself with the data set:
+
+- What is the biological question you are trying to answer?
+  What are the hypothesis?
+
+- What is the study design and how was the experiment done (sample type, treatment, genetic knockout, disease, sample size, system, are there any batches etc.)?
+
+- How was the data processed (software, genome version etc.)?
+
+- What type of data are available (raw data, count matrix, sample metadata)?
+
+Instead of just copy-pasting the code, try implementing the following logic:
+
+1.  Read the vignette first. Try to understand each step.
+2.  Without looking at the vignette, write down the main steps of the workflow (use headers to build an outline of your document at the same time). For each step, write a short comment: What is this step for?, Why is it important? Compare your answers with the vignette. It is ok if you don't remember the exact code or the name of the functions. It's more important that you understand each step conceptually.
+3.  After each step write down your observations. What has changed? Why did you choose this DESeq design? How does PCA explain the data? Are there any batch/technical effects? How many DEGs? etc.
+4.  At the end of your analysis, think about and write down conclusions. It doesn't have to be an academic assay but try to state the main points and do a little bit of goggling.
+    - Are you able to answer the initial research question and confirm/deny the hypotheses?
+    - Try to connect what is known with what you have found.
 
 If you have any questions, check the [DESEq2 vignette](https://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html).
+
+The goal of this training is to help you understand the general workflow of differential gene expression analysis.
+Although using AI can be beneficial and speed up your analysis, it is important that you have a good understanding of topics covered in this training and you have truly mastered the skill.
+Only then you can use AI to help you with the analysis.
+It is fine, to ask AI to help you with customizing a ggplot, but try not to use it for the actual analysis.
+
+If you don't know what a function does, run `?function_name` in Console.
 
 # About the dataset
 
@@ -37,9 +72,8 @@ The code used to generate the tables can be found [data/airway_generate_counts.R
 Full description:
 
 ```{r, message=FALSE, warning=FALSE}
-Sys.setenv(LANGUAGE = "en") # keep R messages in English regardless of system language
-library(airway)
-vignette("airway")
+# library(airway)
+# vignette("airway")
 ```
 
 Because each cell line appears in both conditions, the design is **paired**.
@@ -51,6 +85,7 @@ library(DESeq2)
 library(annotables)
 library(PCAtools)
 library(EnhancedVolcano)
+library(clusterProfiler)
 ```
 
 # Import the data
@@ -335,10 +370,12 @@ That's why we use a fraction genes with the highest variance - they are the most
 2.  Using `PCAtools`
 
 ```{r, warning=FALSE}
-vsd %>%
+pca_plot <- vsd %>%
   assay %>%
   pca(., vsd@colData, removeVar = 0.9) %>% # remove 90% of lower variance -> retains top 10% most variable genes
   biplot(colby = "cell",  shape = 'dex', legendPosition = 'right', lab = NULL )
+
+pca_plot
 ```
 
 Color represents cell line and shape represents treatment status.
@@ -354,6 +391,11 @@ Thanks to this we can easily identify the main sources of variation:
 
 We can color or shape the plot by every variable that exist in our metadata column.
 It is a good practice to play with them, because it might help identify sources of technical variability that can be accounted for in the DESeq design.
+
+> **Exercise 1**
+>
+> Using information available in the metadata table, check whether there are any other factors that can be correlated with PC1 or PC2.
+> Write a short comment on your observations.
 
 # DESeq2 workflow: Part II
 
@@ -446,8 +488,12 @@ Why it matters.
 Multiple testing correction, including Benjamini-Hochberg, assumes the null p-values are uniform.
 If they aren't, padj and the FDR it promises are unreliable, and the list of significant genes may contain many more false positives, or miss many more real ones, than stated.
 
-```{r, fig.width=3, fig.height=3}
-hist(res$pvalue)
+```{r, fig.width=3, fig.height=3, warning=FALSE, message=FALSE}
+p_hist <- ggplot(res, aes(x=pvalue)) +
+  geom_histogram() +
+  theme_bw()
+
+p_hist
 ```
 
 In our case the histogram looks perfect - our test is well-calibrated.
@@ -491,7 +537,6 @@ EnhancedVolcano(res,
 
 1.  Customize the `res` table.
     a.  add `diffexpressed` column with values: UP, DOWN, NS
-    b.  add `delabel` column that will be used to label top DEGs on the volcano
 
 ```{r}
 padj_cutoff <- 0.05
@@ -506,9 +551,6 @@ deg_table <- res %>%
                               log2FoldChange > lfc_cutoff & padj < padj_cutoff ~ "UP",
                               log2FoldChange < -lfc_cutoff & padj < padj_cutoff ~ "DOWN",
                               TRUE ~ "NS"))
-
-deg_table <- deg_table %>%
-  mutate(delabel = ifelse(geneid %in% slice_min(., padj, n = 30)$geneid, geneid, NA))
 ```
 
 ```{r}
@@ -519,9 +561,8 @@ table(deg_table$diffexpressed)
 2.  Built a volcano plot with ggplot2
 
 ```{r, warning=FALSE}
-ggplot(deg_table, aes(x=log2FoldChange, y=-log10(padj), color = diffexpressed, label = delabel)) +
+ggplot(deg_table, aes(x=log2FoldChange, y=-log10(padj), color = diffexpressed)) +
   geom_point(size = 1) +
-  geom_text_repel(show.legend = FALSE) + 
   geom_vline(xintercept = lfc_cutoff, linetype= 'dashed', color = 'gray') +
   geom_hline(yintercept = padj_cutoff,linetype= 'dashed', color = 'gray') +
   scale_color_manual(values = c(DOWN = '#2E6DB4', NS = "gray40", UP="#D6403A"))+ 
@@ -531,4 +572,200 @@ ggplot(deg_table, aes(x=log2FoldChange, y=-log10(padj), color = diffexpressed, l
   ggtitle('Dex: trt vs. untrt')
 ```
 
-\
+> **Exercise 2**
+>
+> Modify the volcano plot, by adding label names to the top 20 differentially expressed genes (DEGs), based on the adjusted p-value (hint: use ggrepel).
+
+> **Exercise 3**
+>
+> Pick 5 DEGs and try to find basic information about their function.
+> Given the context of this study, is it expected to see these genes being differentially expressed?
+
+> **Exercise 4**
+>
+> You will run the DGE analysis many times and some of the steps might get repetitive.
+> Write your own functions:
+>
+> Function 1 should take deseq result object, with arguments: `pvalue_cutoff`, `lfc_cutoff`, `ntop_deg_labels` ,and return a `data.frame` with additional column "diffexpressed" (UP, DOWN, NS)
+>
+> Function 2 should take the modified result table and return a ggplot volcano plot.
+> Make it personalized for your own liking, but also flexible, e.g. optionally show top DEGs labels, how many genes to label etc.; display the number of UP, DOWN and NS genes.
+>
+> You can name the functions and arguments however you like, but make sure it is descriptive and other people can understand your code.
+
+# Pathway enrichment analysis
+
+An RNA-seq experiment gives you hundreds or thousands of differentially expressed genes.
+Reading them one by one is not practical.
+Gene Ontology (GO) helps by grouping genes into labeled sets, such as “inflammatory response” or “cell cycle”, based on what past studies reported about each gene.
+
+Enrichment analysis asks whether your gene list contains more genes from a given set than you would expect by chance.
+Say 5% of all expressed genes belong to “inflammatory response”.
+If 20% of your upregulated genes do, that term is enriched.
+The test is usually a hypergeometric (Fisher) test against a background of all genes you could have detected, followed by multiple-testing correction (FDR).
+
+**Why we split up and down genes**\
+Up and down genes usually reflect different biology.
+In inflamed gut tissue, for example, upregulated genes tend to hit immune terms, and downregulated genes tend to hit epithelial transport and metabolism.
+If you pool them, the larger group dominates and the smaller signal gets diluted.
+Separate analyses are also easier to read, since each result list has a direction.
+Splitting reduces the number of genes per test, which lowers power, so a weak signal can disappear (see Hong et al. 2014, *J R Soc Interface*, for a comparison of the two approaches).
+
+**What a significant term means**\
+A significant term means your up (or down) genes contain more members of that term than chance predicts.
+That is all.
+It is an association between a gene list and a label.
+
+It does not mean the pathway is activated or repressed.
+Several things can break that inference
+
+- GO terms are unordered gene sets, with no direction.
+  “Negative regulation of apoptosis” contains both genes that block cell death and genes that respond to it.
+
+- Upregulated inhibitors can mean the pathway is switched on (negative feedback) or switched off.
+
+- mRNA level is a proxy.
+  Pathway activity often depends on protein abundance, phosphorylation, or localization, which RNA-seq does not measure.
+
+- In bulk tissue, “T cell activation” going up can mean more T cells are present, not that each T cell is more active.
+  Cell composition changes look like pathway changes.
+
+- Well-studied genes carry more annotations, so popular terms get enriched more easily.
+
+- Many GO terms overlap heavily (parent and child terms).
+  Ten significant terms may be one signal counted ten times.
+
+- The result depends on your cutoffs and background.
+  Changing the padj or log2FC threshold, or using all genes instead of expressed genes as background, can change the top terms.
+
+**How to use the results**\
+Treat enriched terms as hypotheses and a way to generate a story, then test them.
+Rank-based methods like GSEA avoid hard cutoffs.
+Activity-inference tools (e.g. PROGENy, decoupleR) estimate pathway or TF activity from target gene behavior.
+Orthogonal data such as protein levels, perturbation experiments, or single-cell data can confirm that the pathway really changed.\
+
+We will perform overrepresantation test using `clusterProfiler` package, focusing on Gene Ontology: Biological Processes.
+Make sure to install [org.Hs.eg.db](BiocManager::install(%22org.Hs.eg.db%22))
+
+```{r}
+# Define gene sets
+# background genes = all tested genes
+universe <- rownames(deg_table)
+down_genes <- deg_table[deg_table$diffexpressed == 'DOWN', 'geneid']
+```
+
+```{r}
+GO_down <- enrichGO(down_genes, 
+                  OrgDb = "org.Hs.eg.db", # Human database
+                  keyType = "SYMBOL", 
+                  ont = "BP",
+                  universe = universe, 
+                  qvalueCutoff = 0.05,
+                  readable = TRUE) 
+# Some GO terms are reduntant. simplify should help remove redundancy but it might be computationally demanding. 
+GO_down_clean <- simplify(GO_down)
+```
+
+```{r}
+head(as.data.frame(GO_down_clean))
+```
+
+clusterProfiler offers lots of tools, including some plotting function.
+Check their full [vignette](https://yulab-smu.top/biomedical-knowledge-mining-book/index.html).
+It is common to show a couple of the most enriched terms.
+
+```{r, fig.height=5, fig.width=6}
+dotplot(GO_down, 
+        x='FoldEnrichment', 
+        showCategory = 15) +
+  ggtitle("GO:BP, DOWN")
+```
+
+> **Exercise 5**
+>
+> Make the same plot for the 'cleaned' results.
+> Are there any differences?
+> How many significant terms does each table have?
+
+```{r}
+
+```
+
+> **Exercise 6**
+>
+> Repeat the `enrichGO` and `simplify` for the upregulated genes.
+> Show both groups (up and down simplified) side-by-side, using `patchwork` package.
+> Which group has more specific GO terms, that can be associated with a more direct response to treatment (consider the cell type and what dex does to it)
+
+# Summary
+
+Congrats!
+You made it through your first differential gene expression analysis.
+As a last exercise:
+
+1.  Prepare a figure that combines all the plots you have generated (`patchwork`).
+2.  Write a short description what each panel represents.
+3.  Write general observations.
+4.  Write conclusions. Restate the hypotheses and the research question. Can you confirm/reject the hypotheses and the research question?
+
+# Additional analyses
+
+Kidding, we are not done yet ;)
+
+Like I mentioned many times, there's usually more than one way to analyze genomics data.
+Sometimes you may wonder, what my filtering step should look like, what should I include in the deseq design, should I apply a log2FC cutoff.
+And often times the answer is: you need to try different approaches and see which one works best.
+
+## Log2 fold change cutoff
+
+The adjusted p-value tells you whether a gene’s change is distinguishable from zero.
+It says nothing about size.
+With enough replicates or high counts, a 5% change can be highly significant, and such changes are often too small to matter biologically.
+A log2FC cutoff keeps only genes with an effect large enough to care about.
+A common choice is \|log2FC\| \> 1 (2-fold) or and 0.5 is also used.
+Neither value has a principled basis, so pick one based on your system and say so in the methods.
+
+> **Exercise 7**
+>
+> 1.  Pick a LFC cutoff and apply it to `res` object. Remember that you have created a function to transform the deseq result table - utilize that.
+> 2.  Run the enrichment analysis on the dataset with applied log2FC
+> 3.  Make a figure that shows volcano plot and GO term plots for both no LFC cutoff and LFC cutoff
+> 4.  Write down your observations. Did the LFC cutoff helped making the GO terms more specific?
+
+## Alternative design
+
+The design that we used so far was `~cell + dex`.
+We said that including cell line information is important, because we are dealing with a paired design.
+But happens if we don't include that information in our design?
+
+> **Exercise 8**
+>
+> 1.  Create a new `dds` object (different variable name) where you run `~dex` model.
+> 2.  Run and plot PCA
+> 3.  Run `results` (no LFC cutoff)
+> 4.  Plot a histogram of nominal p-values.
+> 5.  Make a scatter plot:
+>     a.  x: LFC of `~cell + dex` model; y: LFC of `~dex` model.
+>     b.  Comute correlation between x and y. Show the fitted curve and report correlation coefficient and $R^2$
+>     c.  Color the genes based on whether they are significant in both, significant in x, significant in y
+> 6.  Make a figure that shows p-value histogram and PCA for both models side by side and the scatter plot:
+>     a.  Are the two PCAs different or the same? If they look the same, why that might be? (hint: check in the DESeq2 vignette whether vst and pca include the design information. is there a way to include that?)
+>     b.  How do the two p-value distributions compare? Any concerns?
+>     c.  How many DEG did each model identified?
+>     d.  How many overlapping and model-specific DEGs?
+>     e.  Did including the cell line information improved the analysis?
+
+# Next steps
+
+Good job!
+You now have a solid foundation on differential gene expression analysis.
+Let's test your skills and understanding further.
+This time you will pick your own dataset to work on.
+
+Think of a couple of biological topics that you are interested in.
+It can be a disease model of interest, particular organ, exposure to different environmental factors etc.
+To make things easier, you can use AI (e.g. claude) to help you identify the study.
+Describe your interests and ask it to search for studies with publicly available bulk RNA-seq, where raw count matrix and metadata/sample info are available, the design is relatively simple and the sample size is not gigantic.
+
+Once you have a list of candidates, talk to me and we will pick the dataset together.
+Your task will be to analyze the data: differential expression and functional enrichment analysis.
