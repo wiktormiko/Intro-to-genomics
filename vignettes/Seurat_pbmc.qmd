@@ -6,7 +6,7 @@ editor: visual
 
 # Note
 
-# Note
+This vignette is based on [Seurat - Guided clustering tutorial](https://satijalab.org/seurat/articles/pbmc3k_tutorial)
 
 Use this vignette as a general guideline, not a ground truth.
 There is no one way to analyze genomics data.
@@ -18,26 +18,80 @@ It is vital that, before any analysis, you familiarize yourself with the data se
 - What is the biological question you are trying to answer?
   What are the hypotheses?
 
-- What is the study design and how was the experiment done (sample type, treatment, genetic knockout, disease, sample size, system, are there any batches etc.)?
+- What is the study design and how was the experiment done (sample type, treatment, genetic knockout, disease, sample size, system, technology, are there any batches etc.)?
 
 - How was the data processed (software, genome version etc.)?
 
-- What type of data are available (raw data, count matrix, sample metadata)?
+- What type of data are available (raw data, count matrices, sample/cell metadata)?
 
 Instead of just copy-pasting the code, try implementing the following logic:
 
 1.  Read the vignette first. Try to understand each step.
 2.  Without looking at the vignette, write down the main steps of the workflow (use headers to build an outline of your document at the same time). For each step, write a short comment: What is this step for?, Why is it important? Compare your answers with the vignette. It is ok if you don't remember the exact code or the name of the functions. It's more important that you understand each step conceptually.
-3.  After each step write down your observations. What has changed? Why did you choose this DESeq design? How does PCA explain the data? Are there any batch/technical effects? How many DEGs? etc.
+3.  After each step write down your observations. What has changed?
 4.  At the end of your analysis, think about and write down conclusions. It doesn't have to be an academic assay but try to state the main points and do a little bit of goggling.
     - Are you able to answer the initial research question and confirm/deny the hypotheses?
     - Try to connect what is known with what you have found.
 
-If you have any questions, check the [DESEq2 vignette](https://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html).
-
-The goal of this training is to help you understand the general workflow of differential gene expression analysis.
+The goal of this training is to help you understand the general workflow of single-cell RNA-seq analysis.
 Although using AI can be beneficial and speed up your analysis, it is important that you have a good understanding of topics covered in this training and you have truly mastered the skill.
 Only then you can use AI to help you with the analysis.
 It is fine, to ask AI to help you with customizing a ggplot, but try not to use it for the actual analysis.
 
 If you don't know what a function does, run `?function_name` in Console.
+
+# About the dataset
+
+For this tutorial, we will be analyzing a dataset of Peripheral Blood Mononuclear Cells (PBMC) freely available from 10X Genomics.
+There are 2,700 single cells that were sequenced on the Illumina NextSeq 500.
+The raw data can be found [here](https://cf.10xgenomics.com/samples/cell/pbmc3k/pbmc3k_filtered_gene_bc_matrices.tar.gz).
+
+PBMCs are blood cells with a round nucleus: mostly T cells, plus B cells, NK cells and monocytes (and a small number of dendritic cells and platelets).
+They are easy to collect from a blood draw, which makes them a popular sample for benchmarking and for learning single-cell RNA-seq.
+This dataset ("PBMC 3k") comes from a single healthy human donor and was generated with the 10X Genomics Chromium platform.
+The data were processed with cellranger and aligned to the human reference genome (hg19).
+Because there is only one sample, there are no treatment groups or batches to compare.
+Our goal is to identify the cell types present in the sample, based on clustering and marker gene expression.
+
+The data can be also found on my github
+
+## Structure of the cellranger output
+
+The downloaded archive contains a folder (`filtered_gene_bc_matrices/hg19/`) with three files.
+Together they describe one count matrix, split into the matrix itself and the labels for its rows and columns:
+
+- `barcodes.tsv`: one cell barcode per line (e.g. `AAACATACAACCAC-1`).
+  Each barcode is a short DNA sequence that tags all reads from one droplet, so it identifies one cell.
+  The suffix `-1` is the GEM well (sample) number.
+  These are the **columns** of the matrix (2,700 lines here).
+  Only barcodes that cellranger called as cells are included, empty droplets are removed ("filtered" matrix).
+
+- `genes.tsv`: one gene per line, with two tab-separated columns: the Ensembl gene ID (e.g. `ENSG00000243485`) and the gene symbol (e.g. `MIR1302-10`).
+  These are the **rows** of the matrix, one for every gene in the reference annotation (32,738 for hg19), whether or not it was detected.
+  In newer cellranger versions this file is called `features.tsv.gz` and has a third column giving the feature type (e.g. `Gene Expression`).
+
+- `matrix.mtx`: the UMI counts, stored in the sparse [Matrix Market](https://math.nist.gov/MatrixMarket/formats.html) format.
+  Most entries in a single-cell matrix are zero (a cell expresses only a fraction of all genes), so only non-zero values are stored.
+  After the header lines, there is a line with the total number of rows, columns and non-zero entries, followed by one line per non-zero entry with three numbers: `gene_index cell_index count`.
+  The indices point to the line numbers in `genes.tsv` and `barcodes.tsv`.
+  For example, `1234 5 3` means that the gene on line 1234 of `genes.tsv` has 3 UMIs in the cell on line 5 of `barcodes.tsv`.
+
+`Read10X()` reads these three files and combines them into a single sparse matrix (a `dgCMatrix`) with genes as row names and barcodes as column names.
+
+# Libraries
+
+```{r}
+# Install these packages if you haven't already
+# install.packages("Seurat")
+# devtools::install_github("immunogenomics/presto")
+```
+
+We start by reading in the data.
+The [`Read10X()`](https://satijalab.org/seurat/reference/read10x) function reads in the output of the [cellranger](https://www.10xgenomics.com/support/software/cell-ranger/latest/getting-started/cr-what-is-cell-ranger) pipeline from 10X, returning a unique molecular identified (UMI) count matrix.
+The values in this matrix represent the number of molecules for each feature (i.e. gene; row) that are detected in each cell (column).
+Note that more recent versions of cellranger now also output using the [h5 file format](https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/advanced/h5_matrices), which can be read in using the [`Read10X_h5()`](https://satijalab.org/seurat/reference/read10x_h5) function in Seurat.
+
+We next use the count matrix to create a `Seurat` object.
+The object serves as a container that contains both data (like the count matrix) and analysis (like PCA, or clustering results) for a single-cell dataset.
+For more information, check out the [docs for SeuratObject](https://satijalab.github.io/seurat-object/index.html) or the [section on object interaction](https://satijalab.org/seurat/articles/essential_commands#seurat-object-data-access) in our list of essential commands.
+For example, in Seurat v5, the count matrix is stored in `pbmc[["RNA"]]$counts`.
