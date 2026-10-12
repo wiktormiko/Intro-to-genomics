@@ -203,11 +203,19 @@ A lot of the transcripts are not even protein coding genes.
 Lots of them are non-coding RNA, rRNA etc.
 In this analysis we only care about protein coding genes.
 
-First we will subset `gene_anno` to only protein coding genes and use that table to subset.
+First we will subset `gene_anno` to only **protein coding genes** and use that table to subset.
+
+We will also remove **mitochondrial genes**, since in our analysis we are not focusing on them.
+Depending on how the library prep was done, some protocols enrich for poly-A molecule, which should remove mitochondrial RNA.
+In this case any left over mito genes are just "pollution".
+It is very easy to identify mitochondrial genes - they have a prefix MT- (human) or mt- (mouse).
+If we are not sure whether we should remove mito genes, go back to the experimental design and research question.
+We can calculate a per-sample mitochondrial genes percentage if necessary.
 
 ```{r}
 gene_anno <- gene_anno %>%
-  filter(biotype == 'protein_coding')
+  filter(biotype == 'protein_coding') %>%
+  filter(!grepl("^MT-", symbol, ignore.case = TRUE)) # remove mitochondrial genes (MT- human, mt- mouse)
 dim(gene_anno)
 ```
 
