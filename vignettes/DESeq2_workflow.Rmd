@@ -27,7 +27,7 @@ In the future you will analyze genomic data that you or other people generated.
 It is vital that, before any analysis, you familiarize yourself with the data set:
 
 - What is the biological question you are trying to answer?
-  What are the hypothesis?
+  What are the hypotheses?
 
 - What is the study design and how was the experiment done (sample type, treatment, genetic knockout, disease, sample size, system, are there any batches etc.)?
 
