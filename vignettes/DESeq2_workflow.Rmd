@@ -56,7 +56,9 @@ If you don't know what a function does, run `?function_name` in Console.
 # About the dataset
 
 This workflow uses the **airway** dataset (Bioconductor package `airway`), an RNA-seq experiment from [Himes et al. 2014, *PLoS ONE*](https://doi.org/10.1371/journal.pone.0099625) (GEO: [GSE52778](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE52778)).
-The code used to generate the tables can be found [data/airway_generate_counts.R](https://github.com/wiktormiko/Intro-to-genomics/blob/main/vignettes/data/airway_generate_counts.R)
+The code used to generate the tables can be found [data/airway/airway_generate_counts.R](https://github.com/wiktormiko/Intro-to-genomics/blob/main/vignettes/data/airway/airway_generate_counts.R)
+
+The count matrix and sample sheet can be found [here](https://github.com/wiktormiko/Intro-to-genomics/tree/main/vignettes/data/airway).
 
 - **Biological question:** how do human airway smooth muscle (ASM) cells respond to dexamethasone, a glucocorticoid used to treat asthma and inflammation?
 - **Design:** four ASM cell lines (`N61311`, `N052611`, `N080611`, `N061011`), each either left untreated (`untrt`) or treated with dexamethasone (`trt`).
@@ -91,8 +93,8 @@ library(clusterProfiler)
 # Import the data
 
 ```{r}
-raw_counts <- read.csv("data/airway_raw_counts.csv", row.names = 1)
-mtd <- read.csv("data/airway_metadata.csv", row.names = 1)
+raw_counts <- read.csv("data/airway/airway_raw_counts.csv", row.names = 1)
+mtd <- read.csv("data/airway/airway_metadata.csv", row.names = 1)
 ```
 
 ```{r}
