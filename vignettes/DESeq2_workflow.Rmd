@@ -759,7 +759,7 @@ But happens if we don't include that information in our design?
 >     b.  Comute correlation between x and y. Show the fitted curve and report correlation coefficient and $R^2$
 >     c.  Color the genes based on whether they are significant in both, significant in x, significant in y
 > 6.  Make a figure that shows p-value histogram and PCA for both models side by side and the scatter plot:
->     a.  Are the two PCAs different or the same? If they look the same, why that might be? (hint: check in the DESeq2 vignette whether vst and pca include the design information. is there a way to include that?)
+>     a.  Are the two PCAs different or the same? If they look the same, why that might be? (hint: check in the DESeq2 vignette whether vst and pca include the design information. is there a way to include that? Hint: check deseq2 vignette and `limma::removeBatchEffect()`)
 >     b.  How do the two p-value distributions compare? Any concerns?
 >     c.  How many DEG did each model identified?
 >     d.  How many overlapping and model-specific DEGs?
