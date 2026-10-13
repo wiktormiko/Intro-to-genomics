@@ -1063,6 +1063,7 @@ pbmc$celltype <- Idents(pbmc)   # save it, since Idents are easily overwritten
 
 ## Example answer
 
+::: {.callout-note collapse="true" title="Show example answer"}
 | Cell type | Typical proportion (of PBMC) | Canonical markers | Cluster(s) |
 |----|----|----|----|
 | Naive CD4+ T | \~15-30% | CCR7, SELL, TCF7, LEF1, IL7R (low) | 1 and 2? |
@@ -1131,3 +1132,4 @@ DimPlot(pbmc, label = T)
 ```{r, eval=FALSE}
 saveRDS(pbmc, 'data/pbmc_seurat.rds')
 ```
+:::
