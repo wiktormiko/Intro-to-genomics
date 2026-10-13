@@ -9,3 +9,8 @@ _site/
 
 **/*.quarto_ipynb
 *.nb.html
+
+# RStudio renders and stray outputs
+vignettes/*.html
+vignettes/*_files/
+Rplots.pdf

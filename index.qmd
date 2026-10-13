@@ -1,9 +1,13 @@
 ---
 title: "Intro to genomics"
+subtitle: "Tutorials and vignettes for getting started with genomics data analysis in R"
+page-layout: full
+listing:
+  contents:
+    - "vignettes/*.Rmd"
+    - "vignettes/*.qmd"
+  type: grid
+  grid-columns: 2
+  fields: [title, description]
+  sort: "title"
 ---
-
-Tutorials and vignettes for getting started with genomics data analysis in R.
-
-## Contents
-
-- [DESeq2 workflow](vignettes/DESeq2_workflow.Rmd): differential expression analysis of the `airway` RNA-seq dataset.

@@ -1,5 +1,6 @@
 ---
 title: "DESEq2 workflow"
+description: "Differential expression analysis of bulk RNA-seq data with DESeq2, using the airway dataset."
 author: Wiktor Mikolajczak
 output:
   html_document:

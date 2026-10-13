@@ -1,5 +1,6 @@
 ---
 title: "Seurat workflow: PBMC"
+description: "Single-cell RNA-seq analysis with Seurat: QC, clustering and cell type annotation of PBMCs."
 author: "Wiktor Mikolajczak"
 editor: visual
 ---
@@ -763,7 +764,7 @@ UMAP appeared in the dimensional reduction next to PCA
 
 We can save the seurat object, so we don't have to rerun everything again when we close R.
 
-```{r}
+```{r, eval=FALSE}
 saveRDS(pbmc, file = "data/pbmc_seurat.rds")
 ```
 
@@ -1127,6 +1128,6 @@ pbmc$celltype <- Idents(pbmc)   # save it, since Idents are easily overwritten
 DimPlot(pbmc, label = T)
 ```
 
-```{r}
+```{r, eval=FALSE}
 saveRDS(pbmc, 'data/pbmc_seurat.rds')
 ```

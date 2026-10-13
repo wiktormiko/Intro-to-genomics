@@ -3,6 +3,7 @@ project:
   render:
     - index.qmd
     - "vignettes/*.Rmd"
+    - "vignettes/*.qmd"
 
 execute:
   freeze: true   # outputs are computed locally and committed in _freeze/; CI never runs R
@@ -19,6 +20,9 @@ website:
       - section: "Differential expression"
         contents:
           - vignettes/DESeq2_workflow.Rmd
+      - section: "Single-cell"
+        contents:
+          - vignettes/Seurat_pbmc.qmd
   page-footer: "Intro to genomics"
 
 format:
