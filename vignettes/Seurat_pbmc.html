@@ -1,0 +1,2035 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.18">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Wiktor Mikolajczak">
+
+<title>Seurat workflow: PBMC</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="Seurat_pbmc_files/libs/clipboard/clipboard.min.js"></script>
+<script src="Seurat_pbmc_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="Seurat_pbmc_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="Seurat_pbmc_files/libs/quarto-html/popper.min.js"></script>
+<script src="Seurat_pbmc_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="Seurat_pbmc_files/libs/quarto-html/anchor.min.js"></script>
+<link href="Seurat_pbmc_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="Seurat_pbmc_files/libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="Seurat_pbmc_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="Seurat_pbmc_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="Seurat_pbmc_files/libs/bootstrap/bootstrap-917079515d91bccb85b543faf8aa8bb6.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Seurat workflow: PBMC</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Wiktor Mikolajczak </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="note" class="level1">
+<h1>Note</h1>
+<p>Introduction to Seurat workflow</p>
+<p>This vignette is based on <a href="https://satijalab.org/seurat/articles/pbmc3k_tutorial">Seurat - Guided clustering tutorial</a></p>
+<p>Use this vignette as a general guideline, not a ground truth. There is no one way to analyze genomics data. Sometimes you have to adjust your analysis based on your research question, experimental design etc.</p>
+<p>In the future you will analyze genomic data that you or other people generated. It is vital that, before any analysis, you familiarize yourself with the data set:</p>
+<ul>
+<li><p>What is the biological question you are trying to answer? What are the hypotheses?</p></li>
+<li><p>What is the study design and how was the experiment done (sample type, treatment, genetic knockout, disease, sample size, system, technology, are there any batches etc.)?</p></li>
+<li><p>How was the data processed (software, genome version etc.)?</p></li>
+<li><p>What type of data are available (raw data, count matrices, sample/cell metadata)?</p></li>
+</ul>
+<p>Instead of just copy-pasting the code, try implementing the following logic:</p>
+<ol type="1">
+<li>Read the vignette first. Try to understand each step.</li>
+<li>Without looking at the vignette, write down the main steps of the workflow (use headers to build an outline of your document at the same time). For each step, write a short comment: What is this step for?, Why is it important? Compare your answers with the vignette. It is ok if you don’t remember the exact code or the name of the functions. It’s more important that you understand each step conceptually.</li>
+<li>After each step write down your observations. What has changed?</li>
+<li>At the end of your analysis, think about and write down conclusions. It doesn’t have to be an academic assay but try to state the main points and do a little bit of goggling.
+<ul>
+<li>Are you able to answer the initial research question and confirm/deny the hypotheses?</li>
+<li>Try to connect what is known with what you have found.</li>
+</ul></li>
+</ol>
+<p>The goal of this training is to help you understand the general workflow of single-cell RNA-seq analysis. Although using AI can be beneficial and speed up your analysis, it is important that you have a good understanding of topics covered in this training and you have truly mastered the skill. Only then you can use AI to help you with the analysis. It is fine, to ask AI to help you with customizing a ggplot, but try not to use it for the actual analysis.</p>
+<p>If you don’t know what a function does, run <code>?function_name</code> in Console.</p>
+</section>
+<section id="about-the-dataset" class="level1">
+<h1>About the dataset</h1>
+<p>For this tutorial, we will be analyzing a dataset of Peripheral Blood Mononuclear Cells (PBMC) freely available from 10X Genomics. There are 2,700 single cells that were sequenced on the Illumina NextSeq 500. The raw data can be found <a href="https://cf.10xgenomics.com/samples/cell/pbmc3k/pbmc3k_filtered_gene_bc_matrices.tar.gz">here</a>.</p>
+<p>PBMCs are blood cells with a round nucleus: mostly T cells, plus B cells, NK cells and monocytes (and a small number of dendritic cells and platelets). They are easy to collect from a blood draw, which makes them a popular sample for benchmarking and for learning single-cell RNA-seq. This dataset (“PBMC 3k”) comes from a single healthy human donor and was generated with the 10X Genomics Chromium platform. The data were processed with cellranger and aligned to the human reference genome (hg19). Because there is only one sample, there are no treatment groups or batches to compare. Our goal is to identify the cell types present in the sample, based on clustering and marker gene expression.</p>
+<p>The data can be also found on <a href="https://github.com/wiktormiko/Intro-to-genomics/tree/main/vignettes/data/pbmc/filtered_gene_bc_matrices/hg19">my github</a></p>
+<section id="structure-of-the-cellranger-output" class="level2">
+<h2 class="anchored" data-anchor-id="structure-of-the-cellranger-output">Structure of the cellranger output</h2>
+<p>The downloaded archive contains a folder (<code>filtered_gene_bc_matrices/hg19/</code>) with three files. Together they describe one count matrix, split into the matrix itself and the labels for its rows and columns:</p>
+<ul>
+<li><p><code>barcodes.tsv</code>: one cell barcode per line (e.g.&nbsp;<code>AAACATACAACCAC-1</code>). Each barcode is a short DNA sequence that tags all reads from one droplet, so it identifies one cell. The suffix <code>-1</code> is the GEM well (sample) number. These are the <strong>columns</strong> of the matrix (2,700 lines here). Only barcodes that cellranger called as cells are included, empty droplets are removed (“filtered” matrix).</p></li>
+<li><p><code>genes.tsv</code>: one gene per line, with two tab-separated columns: the Ensembl gene ID (e.g.&nbsp;<code>ENSG00000243485</code>) and the gene symbol (e.g.&nbsp;<code>MIR1302-10</code>). These are the <strong>rows</strong> of the matrix, one for every gene in the reference annotation (32,738 for hg19), whether or not it was detected. In newer cellranger versions this file is called <code>features.tsv.gz</code> and has a third column giving the feature type (e.g.&nbsp;<code>Gene Expression</code>).</p></li>
+<li><p><code>matrix.mtx</code>: the UMI counts, stored in the sparse format. Most entries in a single-cell matrix are zero (a cell expresses only a fraction of all genes), so only non-zero values are stored. After the header lines, there is a line with the total number of rows, columns and non-zero entries, followed by one line per non-zero entry with three numbers: <code>gene_index cell_index count</code>. The indices point to the line numbers in <code>genes.tsv</code> and <code>barcodes.tsv</code>. For example, <code>1234 5 3</code> means that the gene on line 1234 of <code>genes.tsv</code> has 3 UMIs in the cell on line 5 of <code>barcodes.tsv</code>.</p></li>
+</ul>
+<p><code>Read10X()</code> reads these three files and combines them into a single sparse matrix (a <code>dgCMatrix</code>) with genes as row names and barcodes as column names. That format is very similar to bulk RNA-seq data, where rows represent genes and columns represent samples. In single-cell we have cells/barcodes instead of samples.</p>
+</section>
+<section id="what-is-a-umi" class="level2">
+<h2 class="anchored" data-anchor-id="what-is-a-umi">What is a UMI?</h2>
+<p>A UMI (Unique Molecular Identifier) is a short random DNA sequence added to each individual mRNA molecule during reverse transcription, before the cDNA is amplified by PCR. Amplification produces many copies of the same molecule, so counting reads would overestimate highly amplified molecules. Reads from the same cell and gene that carry the same UMI are copies of one original molecule, so they are collapsed and counted once. This is why the values in the matrix are the number of mRNA molecules detected, not the number of reads.</p>
+</section>
+<section id="how-is-this-different-from-bulk-rna-seq" class="level2">
+<h2 class="anchored" data-anchor-id="how-is-this-different-from-bulk-rna-seq">How is this different from bulk RNA-seq?</h2>
+<p>Bulk RNA-seq measures RNA from thousands to millions of cells pooled together, so each gene has one value per sample: an average over all cells. Single-cell RNA-seq keeps the cells separate, so each gene has one value per cell. This lets us find cell types and states that would be hidden in the average, for example in PBMCs, where T cells, B cells and monocytes are mixed together.</p>
+<p>The data look different too, and this affects the analysis:</p>
+<ul>
+<li><strong>Size:</strong> a bulk experiment has a handful of samples (columns), a single-cell experiment has thousands of cells.</li>
+<li><strong>Sparsity:</strong> each cell contains very little RNA (a few pg) and only a fraction of it is captured, so most entries in the matrix are zero. Some zeros are true absence of expression, others are “dropouts” where a molecule was missed. Bulk data have far fewer zeros.</li>
+<li><strong>Counts:</strong> in bulk RNA-seq, reads are usually counted directly (full-length protocols, no UMIs). Because single-cell protocols need a lot of PCR amplification from tiny amounts of RNA, UMIs are used to remove amplification bias.</li>
+<li><strong>Noise:</strong> gene expression is noisy at the single-cell level (both biological and technical), so we need cell-level quality control (e.g.&nbsp;number of genes, mitochondrial content) and dimensionality reduction before clustering.</li>
+<li><strong>Question:</strong> bulk RNA-seq compares conditions (differential expression between samples), single-cell RNA-seq is often used (but not only) to discover and annotate cell populations.</li>
+</ul>
+<p><a href="https://www.10xgenomics.com/blog/how-does-single-cell-rna-seq-work"><strong>How does single cell RNA-seq work</strong></a></p>
+</section>
+</section>
+<section id="saving-your-work" class="level1">
+<h1>Saving your work</h1>
+<p>Some steps in this workflow (normalization, PCA, clustering, UMAP) take time, and the results can change slightly if you rerun them with a different seed or settings. After an important step, save the Seurat object to disk with <code>saveRDS()</code>, and load it later with <code>readRDS()</code>, so you don’t have to rerun everything.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Save the object (after clustering, for example)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(pbmc, <span class="at">file =</span> <span class="st">"data/pbmc_clustered.rds"</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Load it in a new session</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">"data/pbmc_clustered.rds"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Tips:</p>
+<ul>
+<li>The <code>.rds</code> file stores one R object with everything in it: counts, normalized data, metadata, PCA, UMAP and clusters.</li>
+<li>Save versions at different steps (e.g.&nbsp;<code>pbmc_qc.rds</code>, <code>pbmc_clustered.rds</code>, <code>pbmc_annotated.rds</code>) instead of overwriting one file, so you can go back to an earlier step.</li>
+<li>Seurat objects can be large, so don’t commit them to git (add them to <code>.gitignore</code>) and avoid storing them in synced folders if you can.</li>
+<li>The object is tied to the Seurat version it was created with, so note the version (<code>packageVersion("Seurat")</code>) and, if needed, update the object with <code>UpdateSeuratObject()</code> after loading it in a newer one.</li>
+<li><code>saveRDS()</code> saves one object. To save several objects, use <code>save()</code> and <code>load()</code>, or save them in a list.</li>
+</ul>
+</section>
+<section id="libraries" class="level1">
+<h1>Libraries</h1>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Install these packages if you haven't already</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co"># install.packages("Seurat")</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co"># devtools::install_github("immunogenomics/presto")</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(patchwork)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(Seurat)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(clustree)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="seurat-object" class="level1">
+<h1>Seurat object</h1>
+<section id="set-up-seurat-object" class="level2">
+<h2 class="anchored" data-anchor-id="set-up-seurat-object">Set up Seurat object</h2>
+<p>We start by reading in the data. The <a href="https://satijalab.org/seurat/reference/read10x"><code>Read10X()</code></a> function reads in the output of the <a href="https://www.10xgenomics.com/support/software/cell-ranger/latest/getting-started/cr-what-is-cell-ranger">cellranger</a> pipeline from 10X, returning a unique molecular identified (UMI) count matrix. The values in this matrix represent the number of molecules for each feature (i.e.&nbsp;gene; row) that are detected in each cell (column).</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>pbmc_data <span class="ot">&lt;-</span> <span class="fu">Read10X</span>(<span class="st">"data/pbmc/filtered_gene_bc_matrices/hg19/"</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a seurat object</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">CreateSeuratObject</span>(<span class="at">counts =</span> pbmc_data, <span class="at">project =</span> <span class="st">'pbmc'</span>, <span class="at">min.cells =</span> <span class="dv">10</span>, <span class="at">min.features =</span> <span class="dv">0</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Feature names cannot have underscores ('_'), replacing with dashes
+('-')</code></pre>
+</div>
+</div>
+<p><code>min.cells</code>: Include features detected in at least this many cells. We can already set up small cutoffs to filter out cells or genes. This is an arbitrary threshold that should be used carefully and customized depending on the dataset. <code>min.cells = 10</code> is reasonable for this dataset, and it’s a common choice. With 2,700 cells, 10 cells is about 0.4% of the data. Genes seen in fewer cells than that are mostly noise and add little to clustering. The cost is rare populations. If a cell type makes up less than about 0.4% of the cells (roughly 10 cells here), a marker gene specific to it could be filtered out. If you are unsure what to do, or expect to identify rare cell types, it’s better to not set any thresholds.</p>
+<p><code>min.features</code>: Include cells where at least this many features are detected. It’s better to leave it at 0, because we will perform a separate QC and cell filtering.</p>
+</section>
+<section id="seurat-object-structure" class="level2">
+<h2 class="anchored" data-anchor-id="seurat-object-structure">Seurat object structure</h2>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>pbmc</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>An object of class Seurat 
+11139 features across 2700 samples within 1 assay 
+Active assay: RNA (11139 features, 0 variable features)
+ 1 layer present: counts</code></pre>
+</div>
+</div>
+<p>The printed summary tells us that the object has 2,700 cells (called “samples” here), a number of genes (features) that passed <code>min.cells</code>, and one assay called <code>RNA</code>. The object has no variable features yet and only one layer (<code>counts</code>), because we haven’t done any analysis.</p>
+<p>A Seurat object is an S4 object, a container with several slots. Each slot stores a different piece of the analysis, so everything about one dataset stays together and in sync. You can list the slots with <code>slotNames()</code>.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">slotNames</span>(pbmc)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> [1] "assays"       "meta.data"    "active.assay" "active.ident" "graphs"      
+ [6] "neighbors"    "reductions"   "images"       "project.name" "misc"        
+[11] "version"      "commands"     "tools"       </code></pre>
+</div>
+</div>
+<p>The most important ones are:</p>
+<ul>
+<li><code>assays</code>: the expression data (counts, normalized data, scaled data).</li>
+<li><code>meta.data</code>: a data frame with one row per cell, for cell-level information.</li>
+<li><code>active.ident</code>: the cell identity (cluster or cell type) used by default for plotting and DE.</li>
+<li><code>reductions</code>: dimensionality reductions (PCA, UMAP).</li>
+<li><code>graphs</code> and <code>neighbors</code>: the nearest-neighbor graphs used for clustering.</li>
+<li><code>commands</code>: a log of the Seurat functions that were run on the object and their parameters.</li>
+</ul>
+<p>Right now <code>reductions</code> and <code>graphs</code> are empty. They will be filled in as we go.</p>
+<section id="assays-and-layers" class="level3">
+<h3 class="anchored" data-anchor-id="assays-and-layers">Assays and layers</h3>
+<p>An assay holds the expression matrices for one type of measurement. Our data have a single assay, <code>RNA</code>, but one object can have more (e.g.&nbsp;<code>ADT</code> for surface proteins, or <code>SCT</code> after SCTransform). <code>DefaultAssay()</code> tells us which assay is used when we don’t specify one.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Assays</span>(pbmc)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "RNA"</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DefaultAssay</span>(pbmc)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "RNA"</code></pre>
+</div>
+</div>
+<p>In Seurat v5, each assay stores its matrices in <em>layers</em>. At the moment there is just <code>counts</code>, the raw UMI counts. After normalization and scaling we will also get <code>data</code> (log-normalized values) and <code>scale.data</code> (scaled values used for PCA).</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Layers</span>(pbmc)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "counts"</code></pre>
+</div>
+</div>
+<p>Let’s look at the counts layer. It is the sparse matrix we read in with <code>Read10X()</code> (genes in rows, cells in columns), filtered by <code>min.cells</code>. The dots are zeros.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>pbmc[[<span class="st">"RNA"</span>]]<span class="sc">$</span>counts[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>5 x 3 sparse Matrix of class "dgCMatrix"
+          AAACATACAACCAC-1 AAACATTGAGCTAC-1 AAACATTGATCAGC-1
+LINC00115                .                .                .
+NOC2L                    .                .                .
+HES4                     .                .                .
+ISG15                    .                .                1
+C1orf159                 .                .                .</code></pre>
+</div>
+</div>
+</section>
+<section id="cell-metadata" class="level3">
+<h3 class="anchored" data-anchor-id="cell-metadata">Cell metadata</h3>
+<p><code>meta.data</code> has one row per cell (the row names are the barcodes). Seurat adds a few columns automatically:</p>
+<ul>
+<li><code>orig.ident</code>: the sample name (the <code>project</code> we set).</li>
+<li><code>nCount_RNA</code>: the number of UMIs in the cell.</li>
+<li><code>nFeature_RNA</code>: the number of genes detected in the cell.</li>
+</ul>
+<p>The concept of <code>meta.data</code> in single-cell is the same as in bulk RNA-seq and DESeq2 workflow. Instead of biological samples, the row represents cells/barcodes.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(pbmc<span class="sc">@</span>meta.data)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                 orig.ident nCount_RNA nFeature_RNA
+AAACATACAACCAC-1       pbmc       2418          778
+AAACATTGAGCTAC-1       pbmc       4896         1346
+AAACATTGATCAGC-1       pbmc       3144         1126
+AAACCGTGCTTCCG-1       pbmc       2632          953
+AAACCGTGTATGCG-1       pbmc        979          520
+AAACGCACTGGTAC-1       pbmc       2154          779</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co"># or </span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="co"># head(pbmc[[]])</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>We will add more columns here later, such as the percentage of mitochondrial genes and the cluster. Metadata columns can be accessed with <code>$</code>, e.g.&nbsp;<code>pbmc$nCount_RNA</code>. If we have more samples, conditions or batches, this is where we store that information.</p>
+</section>
+<section id="identities" class="level3">
+<h3 class="anchored" data-anchor-id="identities">Identities</h3>
+<p>Every cell also has an identity. By default it is the <code>orig.ident</code>, and later it will be the cluster.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">Idents</span>(pbmc))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>AAACATACAACCAC-1 AAACATTGAGCTAC-1 AAACATTGATCAGC-1 AAACCGTGCTTCCG-1 
+            pbmc             pbmc             pbmc             pbmc 
+AAACCGTGTATGCG-1 AAACGCACTGGTAC-1 
+            pbmc             pbmc 
+Levels: pbmc</code></pre>
+</div>
+</div>
+</section>
+<section id="useful-accessors" class="level3">
+<h3 class="anchored" data-anchor-id="useful-accessors">Useful accessors</h3>
+<p>Prefer these functions to digging into slots with <code>@</code>, because they work across Seurat versions.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(pbmc)              <span class="co"># genes x cells</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 11139  2700</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">rownames</span>(pbmc))   <span class="co"># gene names</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "LINC00115" "NOC2L"     "HES4"      "ISG15"     "C1orf159"  "TNFRSF18" </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">colnames</span>(pbmc))   <span class="co"># cell barcodes</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "AAACATACAACCAC-1" "AAACATTGAGCTAC-1" "AAACATTGATCAGC-1" "AAACCGTGCTTCCG-1"
+[5] "AAACCGTGTATGCG-1" "AAACGCACTGGTAC-1"</code></pre>
+</div>
+</div>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>What</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Counts matrix</td>
+<td><code>pbmc[["RNA"]]$counts</code></td>
+</tr>
+<tr class="even">
+<td>One metadata column</td>
+<td><code>pbmc$nCount_RNA</code></td>
+</tr>
+<tr class="odd">
+<td>All metadata</td>
+<td><code>pbmc@meta.data</code> or <code>pbmc[[]]</code></td>
+</tr>
+<tr class="even">
+<td>Cell identities</td>
+<td><code>Idents(pbmc)</code></td>
+</tr>
+<tr class="odd">
+<td>Assays / layers</td>
+<td><code>Assays(pbmc)</code>, <code>Layers(pbmc)</code></td>
+</tr>
+<tr class="even">
+<td>Reductions</td>
+<td><code>Reductions(pbmc)</code></td>
+</tr>
+<tr class="odd">
+<td>Subset the object</td>
+<td><code>subset(pbmc, subset = nCount_RNA &gt; 500)</code></td>
+</tr>
+</tbody>
+</table>
+<p>As we run the workflow, come back to the object and check what has changed.</p>
+</section>
+</section>
+</section>
+<section id="initial-processing" class="level1">
+<h1>Initial processing</h1>
+<section id="qc-and-selecting-cells-for-further-analysis" class="level2">
+<h2 class="anchored" data-anchor-id="qc-and-selecting-cells-for-further-analysis">QC and selecting cells for further analysis</h2>
+<p>Similarly to the DESeq2 workflow - where we also did some QC’s, e.g.&nbsp;remove low-count genes - we will do something similar. Instead of filtering “low quality genes”, we will remove “low quality <strong>cells</strong>”. Low-quality cells (dying or damaged cells, empty droplets, doublets) have unreliable or misleading expression profiles, so if you leave them in, they add noise, form artificial clusters, and distort normalization and downstream results like clustering and differential expression.</p>
+<p>Here are some of the <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4758103/">commonly used metrics for QC checks</a>:</p>
+<ul>
+<li><p>The number of unique genes detected in each cell.</p>
+<ul>
+<li><p>Low-quality cells or empty droplets will often have very few genes</p></li>
+<li><p>Cell doublets or multiplets may exhibit an aberrantly high gene count</p></li>
+</ul></li>
+<li><p>Similarly, the total number of molecules detected within a cell (correlates strongly with unique genes)</p></li>
+<li><p>The percentage of reads that map to the mitochondrial genome</p>
+<ul>
+<li><p>Low-quality / dying cells often exhibit extensive mitochondrial contamination</p></li>
+<li><p>We calculate mitochondrial QC metrics with the <a href="https://satijalab.org/seurat/reference/percentagefeatureset"><code>PercentageFeatureSet()</code></a> function, which calculates the percentage of counts originating from a set of features</p></li>
+<li><p>We use the set of all genes starting with <code>MT-</code> as a set of mitochondrial genes (<code>mt-</code> in mouse)</p></li>
+</ul></li>
+</ul>
+<p>The number of unique genes (<strong><code>nFeature_RNA</code></strong>) in each cell and total number of UMI (<strong><code>nCount_RNA</code></strong>) in each cell are already present in the meta.data</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(pbmc[[]])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                 orig.ident nCount_RNA nFeature_RNA
+AAACATACAACCAC-1       pbmc       2418          778
+AAACATTGAGCTAC-1       pbmc       4896         1346
+AAACATTGATCAGC-1       pbmc       3144         1126
+AAACCGTGCTTCCG-1       pbmc       2632          953
+AAACCGTGTATGCG-1       pbmc        979          520
+AAACGCACTGGTAC-1       pbmc       2154          779</code></pre>
+</div>
+</div>
+<p>We have to calculate the percentage of mitochondrial genes in each cell. That kind of information belongs to <code>meta.data</code>, so we will append this information as a new column.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>pbmc<span class="sc">$</span>percent.mt <span class="ot">&lt;-</span> <span class="fu">PercentageFeatureSet</span>(pbmc, <span class="at">pattern =</span> <span class="st">"^MT-"</span>) <span class="co"># MT- for human, mt- for mouse</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(pbmc[[]])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                 orig.ident nCount_RNA nFeature_RNA percent.mt
+AAACATACAACCAC-1       pbmc       2418          778  3.0190240
+AAACATTGAGCTAC-1       pbmc       4896         1346  3.7990196
+AAACATTGATCAGC-1       pbmc       3144         1126  0.8905852
+AAACCGTGCTTCCG-1       pbmc       2632          953  1.7477204
+AAACCGTGTATGCG-1       pbmc        979          520  1.2257406
+AAACGCACTGGTAC-1       pbmc       2154          779  1.6713092</code></pre>
+</div>
+</div>
+<p>There is now a new column in metadata, describing a percentage of mitochondrial genes in each cell.</p>
+<p>Visualizing these metrics will help us determine, what thresholds to use for filtering. Seurat has plenty of built-in plotting functions.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">VlnPlot</span>(pbmc, <span class="at">features =</span> <span class="fu">c</span>(<span class="st">'nCount_RNA'</span>, <span class="st">'nFeature_RNA'</span>, <span class="st">'percent.mt'</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-16-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="720"></p>
+</figure>
+</div>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">VlnPlot</span>(pbmc, <span class="at">features =</span> <span class="fu">c</span>(<span class="st">'nCount_RNA'</span>, <span class="st">'nFeature_RNA'</span>, <span class="st">'percent.mt'</span>), <span class="at">pt.size =</span> <span class="dv">0</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-16-2.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="720"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a>plot1 <span class="ot">&lt;-</span> <span class="fu">FeatureScatter</span>(pbmc, <span class="at">feature1 =</span> <span class="st">"nCount_RNA"</span>, <span class="at">feature2 =</span> <span class="st">"percent.mt"</span>)</span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>plot2 <span class="ot">&lt;-</span> <span class="fu">FeatureScatter</span>(pbmc, <span class="at">feature1 =</span> <span class="st">"nCount_RNA"</span>, <span class="at">feature2 =</span> <span class="st">"nFeature_RNA"</span>)</span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>plot1 <span class="sc">+</span> plot2</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-17-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="960"></p>
+</figure>
+</div>
+</div>
+</div>
+<section id="rule-of-thumb-for-setting-the-cutoffs" class="level3">
+<h3 class="anchored" data-anchor-id="rule-of-thumb-for-setting-the-cutoffs">Rule of thumb for setting the cutoffs</h3>
+<p>There are no universal thresholds. Use the violin plots to see where the bulk of the cells is and where the tails are, then cut off only the clear outliers.</p>
+<ul>
+<li><p>Look at the shape of each distribution. Most cells form one main “body”. Cells in a long tail, or in a separate small bump far from the body, are candidates for removal. Place the cutoff in the valley between the body and the tail, not inside the body.</p></li>
+<li><p>Be conservative. It is easier to remove more cells later than to get back cells you have already filtered out. Filter, run the pipeline, and check whether the cells you removed or kept make sense.</p></li>
+<li><p>Look at the metrics together, not one at a time. For example, <code>FeatureScatter()</code> of <code>nCount_RNA</code> vs <code>nFeature_RNA</code> or <code>percent.mt</code> shows whether cells with a high mitochondrial percentage also have low counts (low quality), or whether some cells have many counts and many genes (possible doublets).</p></li>
+<li><p>Thresholds should be set per sample, because different samples and batches can have different distributions.</p></li>
+<li><p>Write down the cutoffs you chose and why, and report how many cells were removed.</p></li>
+</ul>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Example (adjust the values based on your plots)</span></span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a>umi_lo <span class="ot">&lt;-</span> <span class="dv">700</span></span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a>umi_hi <span class="ot">&lt;-</span> <span class="dv">7000</span></span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a>ngenes_lo <span class="ot">&lt;-</span> <span class="dv">250</span></span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a>ngenes_hi <span class="ot">&lt;-</span> <span class="dv">2000</span></span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a>mito_lo <span class="ot">&lt;-</span> <span class="dv">5</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Before we remove any cells, let’s add a new column to the metadata that says which cells have passed the filtering criteria</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a>pbmc<span class="sc">$</span>QC_pass <span class="ot">&lt;-</span> pbmc<span class="sc">$</span>nCount_RNA <span class="sc">&gt;</span> umi_lo <span class="sc">&amp;</span> pbmc<span class="sc">$</span>nCount_RNA <span class="sc">&lt;</span> umi_hi <span class="sc">&amp;</span></span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>  pbmc<span class="sc">$</span>nFeature_RNA <span class="sc">&gt;</span> ngenes_lo <span class="sc">&amp;</span> pbmc<span class="sc">$</span>nFeature_RNA <span class="sc">&lt;</span> ngenes_hi <span class="sc">&amp;</span></span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a>  pbmc<span class="sc">$</span>percent.mt <span class="sc">&lt;</span> mito_lo</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p><code>QC_pass</code> is <code>TRUE</code> for cells that pass all the criteria and <code>FALSE</code> for cells that fail at least one. Let’s see how many cells would be removed.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(pbmc<span class="sc">$</span>QC_pass)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+FALSE  TRUE 
+  104  2596 </code></pre>
+</div>
+</div>
+<p>I am going to write my own ggplot because I want more flexibility</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a>qc_colors <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"TRUE"</span> <span class="ot">=</span> <span class="st">"grey70"</span>, <span class="st">"FALSE"</span> <span class="ot">=</span> <span class="st">"red"</span>)</span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a>thresholds <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">metric =</span> <span class="fu">c</span>(<span class="st">"nCount_RNA"</span>, <span class="st">"nCount_RNA"</span>, <span class="st">"nFeature_RNA"</span>, <span class="st">"nFeature_RNA"</span>, <span class="st">"percent.mt"</span>),</span>
+<span id="cb41-5"><a href="#cb41-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">value =</span> <span class="fu">c</span>(umi_lo, umi_hi, ngenes_lo, ngenes_hi, mito_lo)</span>
+<span id="cb41-6"><a href="#cb41-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb41-7"><a href="#cb41-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-8"><a href="#cb41-8" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> pbmc[[]] <span class="sc">%&gt;%</span></span>
+<span id="cb41-9"><a href="#cb41-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(QC_pass, nCount_RNA, nFeature_RNA, percent.mt) <span class="sc">%&gt;%</span></span>
+<span id="cb41-10"><a href="#cb41-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="sc">-</span>QC_pass, <span class="at">names_to =</span> <span class="st">"metric"</span>, <span class="at">values_to =</span> <span class="st">"value"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb41-11"><a href="#cb41-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(QC_pass) <span class="sc">%&gt;%</span> <span class="co"># FALSE cells are drawn last, on top</span></span>
+<span id="cb41-12"><a href="#cb41-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="st">""</span>, <span class="at">y =</span> value)) <span class="sc">+</span></span>
+<span id="cb41-13"><a href="#cb41-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_violin</span>(<span class="at">fill =</span> <span class="st">"grey95"</span>, <span class="at">color =</span> <span class="st">"grey40"</span>) <span class="sc">+</span></span>
+<span id="cb41-14"><a href="#cb41-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_jitter</span>(<span class="fu">aes</span>(<span class="at">color =</span> QC_pass), <span class="at">width =</span> <span class="fl">0.3</span>, <span class="at">size =</span> <span class="fl">0.3</span>, <span class="at">alpha =</span> .<span class="dv">5</span>) <span class="sc">+</span></span>
+<span id="cb41-15"><a href="#cb41-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">data =</span> thresholds, <span class="fu">aes</span>(<span class="at">yintercept =</span> value), <span class="at">linetype =</span> <span class="st">"dashed"</span>) <span class="sc">+</span></span>
+<span id="cb41-16"><a href="#cb41-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> qc_colors) <span class="sc">+</span></span>
+<span id="cb41-17"><a href="#cb41-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> metric, <span class="at">scales =</span> <span class="st">"free_y"</span>) <span class="sc">+</span></span>
+<span id="cb41-18"><a href="#cb41-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb41-19"><a href="#cb41-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span>
+<span id="cb41-20"><a href="#cb41-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-21"><a href="#cb41-21" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">FeatureScatter</span>(pbmc, <span class="at">feature1 =</span> <span class="st">"nCount_RNA"</span>, <span class="at">feature2 =</span> <span class="st">"percent.mt"</span>, <span class="at">group.by =</span> <span class="st">'QC_pass'</span>, <span class="at">pt.size =</span> .<span class="dv">2</span>) <span class="sc">+</span> <span class="fu">scale_color_manual</span>(<span class="at">values =</span> qc_colors)</span>
+<span id="cb41-22"><a href="#cb41-22" aria-hidden="true" tabindex="-1"></a>p3 <span class="ot">&lt;-</span> <span class="fu">FeatureScatter</span>(pbmc, <span class="at">feature1 =</span> <span class="st">"nCount_RNA"</span>, <span class="at">feature2 =</span> <span class="st">"nFeature_RNA"</span>, <span class="at">group.by =</span> <span class="st">'QC_pass'</span>, <span class="at">pt.size =</span> .<span class="dv">2</span>) <span class="sc">+</span> <span class="fu">scale_color_manual</span>(<span class="at">values =</span> qc_colors)</span>
+<span id="cb41-23"><a href="#cb41-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-24"><a href="#cb41-24" aria-hidden="true" tabindex="-1"></a>(p1 <span class="sc">+</span> (p2 <span class="sc">+</span> p3)) <span class="sc">+</span> <span class="fu">plot_layout</span>(<span class="at">nrow =</span> <span class="dv">2</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-21-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="1200"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Once we are satisfied with our cutoffs, we can remove these low-quality cells. Remember that single-cell analysis is an iterative process and often times you need to go back to previous steps and adjust some parameters.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a>pbmc</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>An object of class Seurat 
+11139 features across 2700 samples within 1 assay 
+Active assay: RNA (11139 features, 0 variable features)
+ 1 layer present: counts</code></pre>
+</div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">subset</span>(pbmc, <span class="at">subset =</span> QC_pass) <span class="co"># keeps cells where QC_pass == TRUE</span></span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a><span class="co"># This is equivalent to: pbmc &lt;- subset(pbmc, subset = QC_pass==TRUE)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Always double check that what you removed worked properly</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb45"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a>pbmc</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>An object of class Seurat 
+11139 features across 2596 samples within 1 assay 
+Active assay: RNA (11139 features, 0 variable features)
+ 1 layer present: counts</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb47"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(pbmc<span class="sc">$</span>QC_pass)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+TRUE 
+2596 </code></pre>
+</div>
+</div>
+<p>We successfully removed low quality cells (104) and we are left with 2596 cells.</p>
+</section>
+</section>
+<section id="data-normalization" class="level2">
+<h2 class="anchored" data-anchor-id="data-normalization">Data normalization</h2>
+<p>Cells differ in how many UMIs we detect, even if they have the same amount of RNA, because of differences in capture efficiency and sequencing depth. If we compared raw counts, a cell with more UMIs would look like it expresses everything more highly. Normalization removes this technical difference so that cells can be compared.</p>
+<p>By default, Seurat uses <code>NormalizeData()</code> with the <code>LogNormalize</code> method:</p>
+<ol type="1">
+<li>Divide the counts of each gene in a cell by the total counts of that cell.</li>
+<li>Multiply by a scale factor (10,000 by default).</li>
+<li>Add 1 and take the natural log (<code>log1p</code>).</li>
+</ol>
+<p>The result is stored in the <code>data</code> layer, and the raw counts stay untouched in the <code>counts</code> layer. The log transform reduces the influence of very highly expressed genes, and makes the data closer to what PCA and clustering work best with.</p>
+<p><strong>How is it different from DESeq2?</strong></p>
+<ul>
+<li><p><strong>What is normalized:</strong> in DESeq2 the unit is a sample (a bulk library), and in Seurat it is a single cell. Seurat computes one size factor per cell (the total UMI count).</p></li>
+<li><p><strong>Size factors:</strong> DESeq2 uses the median-of-ratios method. It assumes that most genes are not differentially expressed, and it uses a geometric mean per gene across samples. This breaks down for single-cell data, because most genes have zero counts in at least one cell, which makes the geometric mean zero. Simple library-size scaling works better for sparse data.</p></li>
+<li><p><strong>Purpose:</strong> DESeq2 normalization is designed for comparing conditions between samples. Seurat normalization is mostly designed for comparing cells, in order to find structure (clusters) in the data.</p></li>
+</ul>
+<p>There are other approaches, for example <code>SCTransform()</code>, which models counts with regularized negative binomial regression and replaces <code>NormalizeData()</code>, <code>FindVariableFeatures()</code> and <code>ScaleData()</code>.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb49"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a>pbmc</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>An object of class Seurat 
+11139 features across 2596 samples within 1 assay 
+Active assay: RNA (11139 features, 0 variable features)
+ 1 layer present: counts</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb51"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">NormalizeData</span>(pbmc)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb53"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a>pbmc</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>An object of class Seurat 
+11139 features across 2596 samples within 1 assay 
+Active assay: RNA (11139 features, 0 variable features)
+ 2 layers present: counts, data</code></pre>
+</div>
+</div>
+<p>Notice that running normalization added a new layer <code>data</code> that stores normalized counts.</p>
+</section>
+<section id="feature-selection" class="level2">
+<h2 class="anchored" data-anchor-id="feature-selection">Feature selection</h2>
+<p>Not all of the ~11,000 genes are useful for finding cell populations. Most genes are either not expressed, or expressed at a similar level in all cells (e.g.&nbsp;housekeeping genes), so they mostly add noise. The genes that differ strongly between cells, called <strong>highly variable genes (HVGs)</strong>, are the ones that carry the information about cell types and states.</p>
+<p>Selecting HVGs for downstream analysis (PCA, clustering) has several advantages:</p>
+<ul>
+<li>It focuses the analysis on the biological signal, which makes the cell populations easier to separate.</li>
+<li>It reduces noise from lowly informative genes.</li>
+<li>It makes the computation faster.</li>
+</ul>
+<p>Seurat’s <code>FindVariableFeatures()</code> uses the <code>vst</code> method by default. You may recognize this approach from DESeq2: before calculating PCA we used vst and selected top 10% most variable genes. By default the top 2,000 genes are selected. The number is a convention, and results are usually robust to moderate changes (e.g.&nbsp;1,000-3,000).</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb55"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">FindVariableFeatures</span>(pbmc)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb57"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a>pbmc</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>An object of class Seurat 
+11139 features across 2596 samples within 1 assay 
+Active assay: RNA (11139 features, 2000 variable features)
+ 2 layers present: counts, data</code></pre>
+</div>
+</div>
+<p>The selected genes are stored in the object and can be accessed with <code>VariableFeatures()</code>. The statistics for all genes are in <code>HVFInfo()</code>.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb59"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">VariableFeatures</span>(pbmc), <span class="dv">10</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> [1] "LYZ"    "S100A9" "IGLL5"  "GNLY"   "FTL"    "PPBP"   "FTH1"   "PF4"   
+ [9] "S100A8" "FCER1A"</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb61"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">HVFInfo</span>(pbmc))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                 mean    variance variance.expected variance.standardized
+LINC00115 0.006548536 0.006508160       0.006975392             0.9330171
+NOC2L     0.108628659 0.161605672       0.202672852             0.7973721
+HES4      0.080893683 0.149137698       0.140138638             1.0642154
+ISG15     1.212249615 7.142215978       4.046082312             1.7652177
+C1orf159  0.009244992 0.009163052       0.009827424             0.9323961
+TNFRSF18  0.042758089 0.060213430       0.061813685             0.9741116</code></pre>
+</div>
+</div>
+<p>Let’s plot the variance against the mean expression, highlighting the variable genes (red), and label the top 10.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb63"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb63-1"><a href="#cb63-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Identify the 10 most highly variable genes</span></span>
+<span id="cb63-2"><a href="#cb63-2" aria-hidden="true" tabindex="-1"></a>top10 <span class="ot">&lt;-</span> <span class="fu">head</span>(<span class="fu">VariableFeatures</span>(pbmc), <span class="dv">10</span>)</span>
+<span id="cb63-3"><a href="#cb63-3" aria-hidden="true" tabindex="-1"></a>plot1 <span class="ot">&lt;-</span> <span class="fu">VariableFeaturePlot</span>(pbmc)</span>
+<span id="cb63-4"><a href="#cb63-4" aria-hidden="true" tabindex="-1"></a><span class="fu">LabelPoints</span>(<span class="at">plot =</span> plot1, <span class="at">points =</span> top10, <span class="at">repel =</span> <span class="cn">TRUE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-28-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="720"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Notice that the top variable genes are markers of specific immune cell types, for example <code>GNLY</code> (NK cells), <code>LYZ</code> and <code>S100A9</code> (monocytes), <code>PPBP</code> and <code>PF4</code> (platelets), <code>FCER1A</code> (dendritic cells). This is what we expect from HVGs: they capture the differences between cell types. Note that only the HVGs are used for PCA, but the other genes remain in the object and can still be plotted or tested for differential expression.</p>
+</section>
+<section id="scaling" class="level2">
+<h2 class="anchored" data-anchor-id="scaling">Scaling</h2>
+<p>Next, we apply a linear transformation (‘scaling’) that is a standard pre-processing step prior to dimensional reduction techniques like PCA. The <a href="https://satijalab.org/seurat/reference/scaledata"><code>ScaleData()</code></a> function:</p>
+<ul>
+<li><p>Shifts the expression of each gene, so that the mean expression across cells is 0</p></li>
+<li><p>Scales the expression of each gene, so that the variance across cells is 1</p>
+<ul>
+<li>This step gives equal weight in downstream analyses, so that highly-expressed genes do not dominate</li>
+</ul></li>
+</ul>
+<p>The results of this are stored in <code>pbmc[["RNA"]]$scale.data</code>. By default, only variable features are scaled; you can specify the <code>features</code> argument to scale additional features.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb64"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb64-1"><a href="#cb64-1" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">ScaleData</span>(pbmc)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb66"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb66-1"><a href="#cb66-1" aria-hidden="true" tabindex="-1"></a>pbmc</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>An object of class Seurat 
+11139 features across 2596 samples within 1 assay 
+Active assay: RNA (11139 features, 2000 variable features)
+ 3 layers present: counts, data, scale.data</code></pre>
+</div>
+</div>
+<section id="regressing-out-unwanted-variation" class="level3">
+<h3 class="anchored" data-anchor-id="regressing-out-unwanted-variation">Regressing out unwanted variation</h3>
+<p><code>ScaleData()</code> can also remove the effect of a variable that you don’t want to drive the analysis, using the <code>vars.to.regress</code> argument. For each gene, Seurat fits a linear model of the (normalized) expression as a function of the variable, and keeps the residuals (what the variable cannot explain) as the scaled values. In other words, the part of the expression that is explained by the variable is subtracted.</p>
+<p>Typical variables to regress out are technical, such as <code>nCount_RNA</code> or <code>percent.mt</code>, or biological, such as the cell cycle phase.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb68"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb68-1"><a href="#cb68-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Example: regress out the percentage of mitochondrial genes</span></span>
+<span id="cb68-2"><a href="#cb68-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb68-3"><a href="#cb68-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Do not run</span></span>
+<span id="cb68-4"><a href="#cb68-4" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">ScaleData</span>(pbmc, <span class="at">vars.to.regress =</span> <span class="st">"percent.mt"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Note that:</p>
+<ul>
+<li>Regression only changes <code>scale.data</code> (used for PCA). The <code>counts</code> and <code>data</code> layers are not changed, so it does not affect plots of normalized expression or differential expression tests that use <code>data</code>.</li>
+<li>Regress out only what you have a reason to. Regression can remove real biological signal if the variable is correlated with it (e.g.&nbsp;a high <code>percent.mt</code> can be a real property of a cell type), and it makes the results harder to interpret.</li>
+<li>First check whether the variable is a problem. Run the analysis without regression and see if the cells separate by that variable (for example, in the PCA or UMAP colored by <code>percent.mt</code>).</li>
+<li>Regression is not a replacement for batch correction between samples.</li>
+</ul>
+</section>
+<section id="cell-cycle-scoring-and-regression" class="level3">
+<h3 class="anchored" data-anchor-id="cell-cycle-scoring-and-regression">Cell cycle scoring and regression</h3>
+<p>Cells in different phases of the cell cycle express different genes (e.g.&nbsp;DNA replication genes in S phase, mitosis genes in G2/M). In proliferating tissues this can be a strong source of variation, and cells may cluster by cell cycle phase instead of by cell type.</p>
+<p>Seurat can score each cell with <code>CellCycleScoring()</code>, based on the expression of lists of S phase and G2/M phase marker genes (these are included in the package for human genes). The function adds <code>S.Score</code>, <code>G2M.Score</code> and <code>Phase</code> (G1, S or G2M) to the metadata.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb69"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb69-1"><a href="#cb69-1" aria-hidden="true" tabindex="-1"></a>s.genes <span class="ot">&lt;-</span> cc.genes.updated<span class="fl">.2019</span><span class="sc">$</span>s.genes</span>
+<span id="cb69-2"><a href="#cb69-2" aria-hidden="true" tabindex="-1"></a>g2m.genes <span class="ot">&lt;-</span> cc.genes.updated<span class="fl">.2019</span><span class="sc">$</span>g2m.genes</span>
+<span id="cb69-3"><a href="#cb69-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb69-4"><a href="#cb69-4" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">CellCycleScoring</span>(pbmc, <span class="at">s.features =</span> s.genes, <span class="at">g2m.features =</span> g2m.genes)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: The following features are not present in the object: DTL, UHRF1,
+CENPU, RAD51AP1, CCNE2, CDC45, CDC6, EXO1, DSCC1, CASP8AP2, POLA1, E2F8, not
+searching for symbol synonyms</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: The following features are not present in the object: CDK1, UBE2C,
+BIRC5, TPX2, TOP2A, NUF2, CENPF, PIMREG, CCNB2, CKAP2L, BUB1, GTSE1, HJURP,
+CDCA3, JPT1, CDC20, TTK, CDC25C, KIF2C, DLGAP5, CDCA2, CDCA8, ECT2, HMMR,
+AURKA, ANLN, CENPE, NEK2, GAS2L3, CENPA, not searching for symbol synonyms</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb72"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb72-1"><a href="#cb72-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(pbmc[[<span class="fu">c</span>(<span class="st">"S.Score"</span>, <span class="st">"G2M.Score"</span>, <span class="st">"Phase"</span>)]])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                      S.Score    G2M.Score Phase
+AAACATACAACCAC-1  0.126378094  0.004296747     S
+AAACATTGAGCTAC-1 -0.041807639 -0.020370781    G1
+AAACATTGATCAGC-1 -0.006384025  0.148882946   G2M
+AAACCGTGCTTCCG-1  0.065038916  0.060157023     S
+AAACCGTGTATGCG-1 -0.033472393  0.130470112   G2M
+AAACGCACTGGTAC-1 -0.049528734 -0.074631316    G1</code></pre>
+</div>
+</div>
+<p>If the cell cycle turns out to drive the structure of your data and you want to remove it, you can regress out the scores:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb74"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb74-1"><a href="#cb74-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Do not run</span></span>
+<span id="cb74-2"><a href="#cb74-2" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">ScaleData</span>(pbmc, <span class="at">vars.to.regress =</span> <span class="fu">c</span>(<span class="st">"S.Score"</span>, <span class="st">"G2M.Score"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Whether to do it depends on your question. If you are interested in other differences between cells, removing the cell cycle helps. If proliferation is part of your biology (e.g.&nbsp;tumor cells, differentiating progenitors), regressing it out removes the signal you are interested in.</p>
+<p>Before regressing out cell cycle score or any other feature, you should first proceed with PCA, clustering and UMAP. If you notice that, for example, cell cycle phase, not cell type, drives the clustering, you may go back to scaling step, regress cell cycle scores and re-run downstream steps.</p>
+<p>For PBMCs this is not necessary. Most blood cells are resting (G0), so there is no cell cycle signal to remove. The scores are close to zero, and the <code>Phase</code> labels are therefore not meaningful. On this dataset, for example, the cells are split almost evenly among G1, S and G2M, which is not realistic for resting cells. We don’t regress anything out in this vignette.</p>
+</section>
+</section>
+</section>
+<section id="linear-dimensional-reduction---pca" class="level1">
+<h1>Linear dimensional reduction - PCA</h1>
+<p>Each cell is described by thousands of genes, which is too many dimensions to compare cells reliably. PCA compresses the variable genes into a small number of principal components (PCs) that capture the main axes of variation between cells. This also reduces noise: the sparse, noisy signal is averaged across correlated genes, so the top PCs mostly carry biological signal and the later ones mostly carry noise. The PCs, not the raw genes, are the input for the next steps: the nearest-neighbor graph, clustering and UMAP. The number of PCs we keep affects the results, and we usually choose it from an elbow plot.</p>
+<p><strong>How is it different from DESeq2?</strong></p>
+<ul>
+<li>In a DESeq2 workflow, PCA is a quality-control and visualization step. It is calculated on transformed counts (variance-stabilized or rlog) and shows whether samples group by condition or batch, and whether there are outliers.</li>
+<li>It is not used in the statistical test. Differential expression is tested for each gene with a negative binomial model, and the PCs are not an input.</li>
+<li>With a handful of samples, you just look at the first two PCs, and you don’t have to choose the number of components.</li>
+<li>In Seurat, PCA is a core part of the workflow, because clustering and UMAP are built on top of it.</li>
+</ul>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb75"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb75-1"><a href="#cb75-1" aria-hidden="true" tabindex="-1"></a>pbmc</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>An object of class Seurat 
+11139 features across 2596 samples within 1 assay 
+Active assay: RNA (11139 features, 2000 variable features)
+ 3 layers present: counts, data, scale.data</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb77"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb77-1"><a href="#cb77-1" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">RunPCA</span>(pbmc)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>PC_ 1 
+Positive:  CST3, TYROBP, LST1, AIF1, FTL, FTH1, FCN1, LYZ, S100A9, FCER1G 
+       TYMP, CFD, LGALS1, CD68, SERPINA1, S100A8, CTSS, LGALS2, SPI1, IFITM3 
+       CFP, PSAP, IFI30, SAT1, S100A11, COTL1, NPC2, GRN, LGALS3, PYCARD 
+Negative:  MALAT1, LTB, IL32, IL7R, CD2, B2M, CD27, ACAP1, STK17A, CD247 
+       CTSW, NOSIP, RARRES3, GIMAP5, AQP3, CCL5, SELL, TRAF3IP3, MAL, CD8B 
+       GZMA, CST7, ITM2A, MYC, LDLRAP1, BEX2, HOPX, ETS1, PNISR, MZT2A 
+PC_ 2 
+Positive:  CD79A, MS4A1, TCL1A, HLA-DQA1, HLA-DRA, HLA-DQB1, LINC00926, VPREB3, CD79B, CD74 
+       HLA-DRB1, HLA-DMA, HLA-DPB1, CD37, HLA-DRB5, HLA-DPA1, HLA-DMB, LTB, FCRLA, HVCN1 
+       BLNK, IRF8, P2RX5, IGLL5, QRSL1, SWAP70, ARHGAP24, FCGR2B, SMIM14, C16orf74 
+Negative:  NKG7, PRF1, CST7, GZMA, GZMB, FGFBP2, CTSW, GNLY, B2M, SPON2 
+       GZMH, CCL4, CCL5, FCGR3A, CD247, CLIC3, XCL2, AKR1C3, SRGN, HOPX 
+       TTC38, CTSC, APMAP, RARRES3, IGFBP7, S100A4, ID2, ANXA1, ACTB, TPST2 
+PC_ 3 
+Positive:  CD79A, CD79B, HLA-DQA1, MS4A1, HLA-DQB1, CD74, HLA-DPB1, HLA-DPA1, TCL1A, HLA-DRB1 
+       HLA-DRA, LINC00926, VPREB3, HLA-DRB5, HLA-DMA, HVCN1, HLA-DMB, FCRLA, GZMB, FGFBP2 
+       IRF8, CD37, PLAC8, BLNK, FCGR3A, PRF1, GNLY, NKG7, IGLL5, P2RX5 
+Negative:  IL7R, VIM, NOSIP, IL32, TMSB4X, S100A6, FYB, RGS10, MAL, S100A4 
+       S100A8, AQP3, CD2, S100A10, GIMAP4, S100A9, CD27, ANXA1, LDLRAP1, GIMAP5 
+       CD14, LGALS2, NDFIP1, RBP7, TRABD2A, NELL2, GAPDH, S100A12, S100A11, LYZ 
+PC_ 4 
+Positive:  LTB, CDKN1C, CKB, MS4A7, SIGLEC10, RP11-290F20.3, CYTIP, IL7R, HMOX1, LILRB2 
+       AQP3, VIM, HN1, IFITM2, PTGES3, GDI2, CTD-2006K23.1, NOSIP, PGK1, CORO1B 
+       LILRA3, WARS, ANXA5, TUBA1B, CD27, ABRACL, VMO1, NAAA, MAL, ATP1A1 
+Negative:  S100A8, GZMB, NKG7, FGFBP2, CCL4, CST7, GNLY, GZMA, PRF1, LGALS2 
+       S100A9, CCL5, SPON2, S100A12, CCL3, RBP7, CD14, GZMH, MS4A6A, FOLR3 
+       CTSW, XCL2, GSTP1, CLIC3, TYROBP, XCL1, IGFBP7, TTC38, AKR1C3, ASGR1 
+PC_ 5 
+Positive:  MALAT1, S100A8, LGALS2, CD14, MS4A6A, CYBA, S100A9, FOLR3, FCN1, GSTP1 
+       ASGR1, S100A12, GRN, LYZ, RBP7, ALDH2, CCL3, NFKBIA, KLF6, ID1 
+       FCGR1A, S100A6, TYROBP, IL8, S100A4, FPR1, VAMP8, S100A10, SAT2, C19orf59 
+Negative:  PPBP, PF4, SDPR, MYL9, SPARC, HIST1H2AC, NRGN, CLU, GNG11, GP9 
+       RGS18, CA2, TUBB1, AP001189.4, ITGA2B, TREML1, F13A1, ACRBP, CD9, RP11-367G6.3 
+       MPP1, TPM1, PTCRA, TSC22D1, TMEM40, GP1BA, MMD, CMTM5, CLEC1B, MAP3K7CL </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb79"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb79-1"><a href="#cb79-1" aria-hidden="true" tabindex="-1"></a>pbmc</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>An object of class Seurat 
+11139 features across 2596 samples within 1 assay 
+Active assay: RNA (11139 features, 2000 variable features)
+ 3 layers present: counts, data, scale.data
+ 1 dimensional reduction calculated: pca</code></pre>
+</div>
+</div>
+<p>Dimensional reduction is now stored in the Seurat object.</p>
+<section id="determine-the-dimensionality-of-the-dataset" class="level2">
+<h2 class="anchored" data-anchor-id="determine-the-dimensionality-of-the-dataset">Determine the ‘dimensionality’ of the dataset</h2>
+<p>To overcome the extensive technical noise in any single feature for scRNA-seq data, Seurat clusters cells based on their PCA scores, with each PC essentially representing a ‘metafeature’ that combines information across a correlated feature set. The top principal components therefore represent a robust compression of the dataset. However, how many components should we choose to include? 10? 20? 100?</p>
+<p>We can use elbow plot - a ranking of principle components based on the percentage of variance explained by each one (<a href="https://satijalab.org/seurat/reference/elbowplot"><code>ElbowPlot()</code></a> function). In this example, we can observe an ‘elbow’ around PC9-10, suggesting that the majority of true signal is captured in the first 10 PCs.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb81"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb81-1"><a href="#cb81-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ElbowPlot</span>(pbmc)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-34-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="720"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Choosing the optimal number of dimensions to use for downstream analyses can be challenging. If you are uncertain, it is better no include more PCs beyond the elbow, e.g 12-15. Cutting out the PCs, that don’t contribute to explaining more variance, reduces the technical noise and can improve clustering. However, if your dataset contains rare cell type, that you wish to identify, you might need to include more dimensions, as rare cell types are often correlated with later PCs and might be barely distinguishable from the noise. Depending on what you try to discover, you may need to repeat downstream analyses with different number of PCs. In this tutorial we will use the first 10 PCs for downstream analyses.</p>
+</section>
+</section>
+<section id="clustering" class="level1">
+<h1>Clustering</h1>
+<p>The goal of clustering is to group cells with similar expression profiles, with the hope that each group corresponds to a cell type or state. Clustering is unsupervised: we don’t tell the algorithm which cell types exist, we only look for structure in the data.</p>
+<p>Conceptually, Seurat does it in two steps:</p>
+<ol type="1">
+<li><strong>Build a graph of similar cells.</strong> Each cell is connected to its nearest neighbors in PCA space (<code>FindNeighbors()</code>). Cells of the same type are close to each other, so they end up densely connected.</li>
+<li><strong>Find communities in the graph.</strong> An algorithm (Louvain by default, in <code>FindClusters()</code>) searches for groups of cells that are more connected to each other than to the rest. Each group is a cluster.</li>
+</ol>
+<p>The step is based on the PCs, not on all genes, so the number of PCs we selected earlier affects the clusters.</p>
+<p>The most important parameter is the <strong>resolution</strong>: a higher value gives more, smaller clusters, and a lower value gives fewer, larger clusters. There is no single correct value. Clusters are a way of splitting a continuous landscape of cells, and the right level of detail depends on your question. Common values are 0.4-1.2, and a good practice is to try a few and check whether the clusters make biological sense (do they have distinct marker genes?). Clusters that are not distinguishable by marker genes are probably over-split and can be merged.</p>
+<p>Keep in mind that clusters are not the same as cell types. They become cell types only after we annotate them using marker genes and prior knowledge. Also, the cluster numbers are arbitrary labels, and they can change if you rerun the analysis with different parameters.</p>
+<p>The default clustering method is Louvain, but we will use Leiden, as it slightly improves Louvain. In practice, on simple datasets like pbmc, these two clustering methods yield very similar results.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb82"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb82-1"><a href="#cb82-1" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">FindNeighbors</span>(pbmc, <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>) <span class="co"># here we use the number of PCs we wish to keep</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Computing nearest neighbor graph</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Computing SNN</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb85"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb85-1"><a href="#cb85-1" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">FindClusters</span>(pbmc, </span>
+<span id="cb85-2"><a href="#cb85-2" aria-hidden="true" tabindex="-1"></a>                     <span class="at">resolution =</span> <span class="fu">c</span>(<span class="fl">0.2</span>, <span class="fl">0.5</span>, <span class="fl">0.8</span>, <span class="dv">1</span>, <span class="fl">1.2</span>), <span class="co"># we will try multiple resolutions</span></span>
+<span id="cb85-3"><a href="#cb85-3" aria-hidden="true" tabindex="-1"></a>                     <span class="at">algorithm =</span> <span class="dv">4</span>) <span class="co"># 4 = Leiden algorithm</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb86"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb86-1"><a href="#cb86-1" aria-hidden="true" tabindex="-1"></a>pbmc</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>An object of class Seurat 
+11139 features across 2596 samples within 1 assay 
+Active assay: RNA (11139 features, 2000 variable features)
+ 3 layers present: counts, data, scale.data
+ 1 dimensional reduction calculated: pca</code></pre>
+</div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb88"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb88-1"><a href="#cb88-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Nearest neighbors info is stored here</span></span>
+<span id="cb88-2"><a href="#cb88-2" aria-hidden="true" tabindex="-1"></a>pbmc<span class="sc">@</span>graphs</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>$RNA_nn
+A Graph object containing 2596 cells
+$RNA_snn
+A Graph object containing 2596 cells</code></pre>
+</div>
+</div>
+<p>After running <code>FindClusters()</code>, there is a new column for each clustering resolution.</p>
+<p><strong><code>RNA_snn_res.0.2</code>, <code>RNA_snn_res.0.5</code></strong>, <strong><code>RNA_snn_res.0.8</code></strong>, <strong><code>RNA_snn_res.1</code></strong>, <strong><code>RNA_snn_res.1.2</code></strong> and <code>seurat_clusters</code> which represents the last resolution that was run (1.2). I really don’t like these names. They are ugly and annoying to type. Fortunately, you can specify cluster names when running <code>FindClusters()</code> (or you can change column names).</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb90"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb90-1"><a href="#cb90-1" aria-hidden="true" tabindex="-1"></a>resolutions <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.2</span>, <span class="fl">0.5</span>, <span class="fl">0.8</span>, <span class="dv">1</span>, <span class="fl">1.2</span>)</span>
+<span id="cb90-2"><a href="#cb90-2" aria-hidden="true" tabindex="-1"></a>cl_names <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">"leiden_"</span>, resolutions)</span>
+<span id="cb90-3"><a href="#cb90-3" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">FindClusters</span>(pbmc, </span>
+<span id="cb90-4"><a href="#cb90-4" aria-hidden="true" tabindex="-1"></a>                     <span class="at">resolution =</span> <span class="fu">c</span>(<span class="fl">0.2</span>, <span class="fl">0.5</span>, <span class="fl">0.8</span>, <span class="dv">1</span>, <span class="fl">1.2</span>), <span class="co"># we will try multiple resolutions</span></span>
+<span id="cb90-5"><a href="#cb90-5" aria-hidden="true" tabindex="-1"></a>                     <span class="at">cluster.name =</span> cl_names,</span>
+<span id="cb90-6"><a href="#cb90-6" aria-hidden="true" tabindex="-1"></a>                     <span class="at">algorithm =</span> <span class="dv">4</span>) <span class="co"># 4 = Leiden algorithm</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb91"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb91-1"><a href="#cb91-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(pbmc[[]])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                 orig.ident nCount_RNA nFeature_RNA percent.mt QC_pass
+AAACATACAACCAC-1       pbmc       2418          778  3.0190240    TRUE
+AAACATTGAGCTAC-1       pbmc       4896         1346  3.7990196    TRUE
+AAACATTGATCAGC-1       pbmc       3144         1126  0.8905852    TRUE
+AAACCGTGCTTCCG-1       pbmc       2632          953  1.7477204    TRUE
+AAACCGTGTATGCG-1       pbmc        979          520  1.2257406    TRUE
+AAACGCACTGGTAC-1       pbmc       2154          779  1.6713092    TRUE
+                      S.Score    G2M.Score Phase RNA_snn_res.0.2
+AAACATACAACCAC-1  0.126378094  0.004296747     S               1
+AAACATTGAGCTAC-1 -0.041807639 -0.020370781    G1               4
+AAACATTGATCAGC-1 -0.006384025  0.148882946   G2M               1
+AAACCGTGCTTCCG-1  0.065038916  0.060157023     S               2
+AAACCGTGTATGCG-1 -0.033472393  0.130470112   G2M               3
+AAACGCACTGGTAC-1 -0.049528734 -0.074631316    G1               1
+                 RNA_snn_res.0.5 RNA_snn_res.0.8 RNA_snn_res.1 RNA_snn_res.1.2
+AAACATACAACCAC-1               2               2             2               1
+AAACATTGAGCTAC-1               4               5             5               4
+AAACATTGATCAGC-1               2               2             2               1
+AAACCGTGCTTCCG-1               3               3             3               8
+AAACCGTGTATGCG-1               7               7             7               9
+AAACGCACTGGTAC-1               2               2             2               1
+                 seurat_clusters
+AAACATACAACCAC-1               1
+AAACATTGAGCTAC-1               4
+AAACATTGATCAGC-1               1
+AAACCGTGCTTCCG-1               8
+AAACCGTGTATGCG-1               9
+AAACGCACTGGTAC-1               1</code></pre>
+</div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb93"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb93-1"><a href="#cb93-1" aria-hidden="true" tabindex="-1"></a>resolutions <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.2</span>, <span class="fl">0.5</span>, <span class="fl">0.8</span>, <span class="dv">1</span>, <span class="fl">1.2</span>)</span>
+<span id="cb93-2"><a href="#cb93-2" aria-hidden="true" tabindex="-1"></a>cl_names <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">"leiden_"</span>, resolutions)</span>
+<span id="cb93-3"><a href="#cb93-3" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">FindClusters</span>(pbmc, </span>
+<span id="cb93-4"><a href="#cb93-4" aria-hidden="true" tabindex="-1"></a>                     <span class="at">resolution =</span> <span class="fu">c</span>(<span class="fl">0.2</span>, <span class="fl">0.5</span>, <span class="fl">0.8</span>, <span class="dv">1</span>, <span class="fl">1.2</span>), <span class="co"># we will try multiple resolutions</span></span>
+<span id="cb93-5"><a href="#cb93-5" aria-hidden="true" tabindex="-1"></a>                     <span class="at">cluster.name =</span> cl_names,</span>
+<span id="cb93-6"><a href="#cb93-6" aria-hidden="true" tabindex="-1"></a>                     <span class="at">algorithm =</span> <span class="dv">4</span>) <span class="co"># 4 = Leiden algorithm</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>I will remove the old cluster columns to avoid confusion. Normally, you would run <code>FindClusters()</code> once and specify <code>cluster.names</code>. I just wanted to show how the function behaves by default.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb94"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb94-1"><a href="#cb94-1" aria-hidden="true" tabindex="-1"></a>cols_remove <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">"RNA_snn*|seurat_clusters"</span>, <span class="fu">colnames</span>(pbmc[[]]), <span class="at">value =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb94-2"><a href="#cb94-2" aria-hidden="true" tabindex="-1"></a>pbmc[[cols_remove]] <span class="ot">&lt;-</span> <span class="cn">NULL</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb95"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb95-1"><a href="#cb95-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(pbmc[[]])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                 orig.ident nCount_RNA nFeature_RNA percent.mt QC_pass
+AAACATACAACCAC-1       pbmc       2418          778  3.0190240    TRUE
+AAACATTGAGCTAC-1       pbmc       4896         1346  3.7990196    TRUE
+AAACATTGATCAGC-1       pbmc       3144         1126  0.8905852    TRUE
+AAACCGTGCTTCCG-1       pbmc       2632          953  1.7477204    TRUE
+AAACCGTGTATGCG-1       pbmc        979          520  1.2257406    TRUE
+AAACGCACTGGTAC-1       pbmc       2154          779  1.6713092    TRUE
+                      S.Score    G2M.Score Phase leiden_0.2 leiden_0.5
+AAACATACAACCAC-1  0.126378094  0.004296747     S          1          2
+AAACATTGAGCTAC-1 -0.041807639 -0.020370781    G1          4          4
+AAACATTGATCAGC-1 -0.006384025  0.148882946   G2M          1          2
+AAACCGTGCTTCCG-1  0.065038916  0.060157023     S          2          3
+AAACCGTGTATGCG-1 -0.033472393  0.130470112   G2M          3          7
+AAACGCACTGGTAC-1 -0.049528734 -0.074631316    G1          1          2
+                 leiden_0.8 leiden_1 leiden_1.2
+AAACATACAACCAC-1          2        2          1
+AAACATTGAGCTAC-1          5        5          4
+AAACATTGATCAGC-1          2        2          1
+AAACCGTGCTTCCG-1          3        3          8
+AAACCGTGTATGCG-1          7        7          9
+AAACGCACTGGTAC-1          2        2          1</code></pre>
+</div>
+</div>
+</section>
+<section id="non-linear-dimensional-reduction---umap" class="level1">
+<h1>Non-linear dimensional reduction - UMAP</h1>
+<p><strong>Why not stop at PCA?</strong> PCA is linear, and the first two PCs capture only a small part of the variation in single-cell data. Plotting PC1 vs PC2 usually shows overlapping populations, even if the cells are well separated in the 10-30 PCs we use for clustering. Non-linear methods (UMAP, t-SNE) compress this high-dimensional structure into 2 dimensions, so that we can see the clusters. They are used to visualize the data, and the clustering is not done on them.</p>
+<p><strong>Comparison with DESeq2:</strong> in a DESeq2 workflow, the first two PCs are usually enough to see the few samples, so there is no need for a non-linear method. With thousands of cells, PC1 vs PC2 is not enough.</p>
+<p><strong>UMAP vs t-SNE</strong></p>
+<ul>
+<li>Both place similar cells close together in 2D.</li>
+<li>UMAP is faster, and it preserves more of the global structure (the relationships between clusters) than t-SNE, which mostly preserves local neighborhoods.</li>
+<li>This is why UMAP is preferred, and it is the standard now.</li>
+</ul>
+<p><strong>Limitations: how not to overinterpret UMAP</strong></p>
+<ul>
+<li>Distances are only meaningful locally. The distance between clusters and the size or density of clusters on the plot do not reflect the real distances or the number of cells.</li>
+<li>Clusters that are close on the UMAP are not necessarily more similar, and the global layout can change between runs and parameters.</li>
+<li>Continuous trajectories and gaps can be artifacts, as the method may tear or stretch the data.</li>
+<li>The shape depends on parameters (e.g.&nbsp;the number of PCs and neighbors) and on the random seed.</li>
+<li>Use UMAP for visualization and to check the clusters, not as evidence on its own. Confirm conclusions with marker genes and statistical tests on the full data.</li>
+</ul>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb97"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb97-1"><a href="#cb97-1" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">RunUMAP</span>(pbmc, <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>12:46:41 UMAP embedding parameters a = 0.9922 b = 1.112</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>12:46:41 Read 2596 rows and found 10 numeric columns</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>12:46:41 Using Annoy for neighbor search, n_neighbors = 30</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>12:46:41 Building Annoy index with metric = cosine, n_trees = 50</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>0%   10   20   30   40   50   60   70   80   90   100%</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>[----|----|----|----|----|----|----|----|----|----|</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>**************************************************|
+12:46:42 Writing NN index file to temp file /var/folders/d2/thd06qrn4rbb45ympp7409t40000gn/T//RtmpprC29d/file1686c3ec206d
+12:46:42 Searching Annoy index using 1 thread, search_k = 3000
+12:46:42 Annoy recall = 100%
+12:46:42 Commencing smooth kNN distance calibration using 1 thread with target n_neighbors = 30
+12:46:42 Initializing from normalized Laplacian + noise (using RSpectra)
+12:46:42 Commencing optimization for 500 epochs, with 103478 positive edges
+12:46:42 Using rng type: pcg
+12:46:44 Optimization finished</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb105"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb105-1"><a href="#cb105-1" aria-hidden="true" tabindex="-1"></a>pbmc</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>An object of class Seurat 
+11139 features across 2596 samples within 1 assay 
+Active assay: RNA (11139 features, 2000 variable features)
+ 3 layers present: counts, data, scale.data
+ 2 dimensional reductions calculated: pca, umap</code></pre>
+</div>
+</div>
+<p>UMAP appeared in the dimensional reduction next to PCA</p>
+<p>We can save the seurat object, so we don’t have to rerun everything again when we close R.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb107"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb107-1"><a href="#cb107-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(pbmc, <span class="at">file =</span> <span class="st">"data/pbmc_seurat.rds"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<section id="umap-plots" class="level2">
+<h2 class="anchored" data-anchor-id="umap-plots">UMAP plots</h2>
+<p>The UMAP is a map of the cells, and we can color it by different information to learn about the data. This is one of the most common type of plot in single-cell world. Seurat has two main functions:</p>
+<ul>
+<li><code>DimPlot()</code> colors cells by a categorical variable from the metadata, e.g.&nbsp;clusters, sample, condition or <code>QC_pass</code>.</li>
+<li><code>FeaturePlot()</code> colors cells by a continuous value: the expression of a gene, or a numeric metadata column such as <code>nCount_RNA</code> or <code>percent.mt</code>.</li>
+</ul>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb108"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb108-1"><a href="#cb108-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(pbmc, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">label =</span> <span class="cn">TRUE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-44-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="720"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb109"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb109-1"><a href="#cb109-1" aria-hidden="true" tabindex="-1"></a><span class="fu">levels</span>(<span class="fu">Idents</span>(pbmc))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> [1] "1"  "2"  "3"  "4"  "5"  "6"  "7"  "8"  "9"  "10"</code></pre>
+</div>
+</div>
+<p>By default <code>DimPlot</code> groups cells by their Identity, which in this case is the last resolution that we ran</p>
+<p>Useful arguments:</p>
+<ul>
+<li><code>group.by</code>: which metadata column defines the colors (default is the active identity, i.e.&nbsp;the clusters).</li>
+<li><code>split.by</code>: make a separate panel for each value (e.g.&nbsp;per sample or condition).</li>
+<li><code>label = TRUE</code>: write the cluster names on the plot.</li>
+<li><code>cells.highlight</code>: highlight a chosen set of cells.</li>
+<li><code>order = TRUE</code> in <code>FeaturePlot()</code>: plot the cells with the highest expression on top, so they are not hidden.</li>
+</ul>
+<p>What to look for:</p>
+<ul>
+<li><strong>Clusters:</strong> do they look like separate groups?</li>
+<li><strong>Technical effects:</strong> color by QC metrics (<code>nCount_RNA</code>, <code>percent.mt</code>), the cell cycle phase and batch. A cluster that is defined only by a high mitochondrial percentage or by one batch may be an artifact.</li>
+<li><strong>Marker genes:</strong> color by known markers to see which cells express them.</li>
+</ul>
+<p>Remember that the UMAP is only for visualization, so keep the limitations from the previous section in mind.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb111"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb111-1"><a href="#cb111-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(pbmc, <span class="at">group.by =</span> cl_names)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-46-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="1200"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Passing several columns to <code>group.by</code> gives one panel per clustering resolution on the same UMAP. Higher resolutions split the same cells into more, smaller clusters, so this helps you pick a resolution that separates real groups without over-splitting them. The cluster numbering starts with 1 (or 0 if Louvain) and that is the biggest cluster. The last number will represent the smallest cluster.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb112"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb112-1"><a href="#cb112-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Is a cluster driven by a technical problem?</span></span>
+<span id="cb112-2"><a href="#cb112-2" aria-hidden="true" tabindex="-1"></a><span class="fu">FeaturePlot</span>(pbmc, <span class="at">features =</span> <span class="fu">c</span>(<span class="st">"nCount_RNA"</span>, <span class="st">'nFeature_RNA'</span>,<span class="st">"percent.mt"</span>, <span class="st">'S.Score'</span>, <span class="st">'G2M.Score'</span>), <span class="at">order =</span> <span class="cn">TRUE</span>) <span class="sc">+</span></span>
+<span id="cb112-3"><a href="#cb112-3" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(pbmc, <span class="at">group.by =</span> <span class="st">"Phase"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-47-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="960"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb113"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb113-1"><a href="#cb113-1" aria-hidden="true" tabindex="-1"></a><span class="fu">FeaturePlot</span>(pbmc, <span class="at">features =</span> <span class="fu">c</span>(<span class="st">"IL7R"</span>, <span class="st">"MS4A1"</span>, <span class="st">"PPBP"</span>, <span class="st">"GNLY"</span>), <span class="at">order =</span> <span class="cn">TRUE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-48-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="720"></p>
+</figure>
+</div>
+</div>
+</div>
+<blockquote class="blockquote">
+<p><strong>Exercise</strong></p>
+<p>We mentioned earlier that sometimes there might be a strong effect, that drives the clustering that is not the cell type. In that case, we might want to regress that feature. Based on the above plots, is there any technical/ non-cell-type-derived factor that defines a cluster? Or is the clustering driven by marker genes?</p>
+</blockquote>
+</section>
+</section>
+<section id="choosing-optimal-clustering-resolution" class="level1">
+<h1>Choosing optimal clustering resolution</h1>
+<p>This is one of the most important problems in single cell analysis, because the clustering resolution you choose will determine lots of downstream analyses. There is no single correct resolution. Clusters are a mathematical representation of the data, and the “right” number depends on the question you ask: a lower resolution for broad cell types (T cells, B cells, monocytes), a higher one to resolve subtypes (CD4 vs CD8 T cells). It is common to start coarse and sub-cluster only the populations of interest.</p>
+<p><strong>Considerations</strong></p>
+<ul>
+<li><strong>Biological question:</strong> how fine do you need to go? Do not split further than your question requires.</li>
+<li><strong>Data size and complexity:</strong> larger datasets with more cell types usually support higher resolutions.</li>
+<li><strong>Over-clustering:</strong> splits with no distinguishing genes, or clusters defined only by QC metrics, cell cycle or batch, are not worth keeping.</li>
+<li><strong>Under-clustering:</strong> distinct populations (e.g.&nbsp;a clear marker-defined group) that are merged into one cluster.</li>
+<li><strong>Reproducibility:</strong> the clustering depends on the number of PCs, the number of neighbors and the random seed, so check that your conclusions hold when these change slightly.</li>
+</ul>
+<p><strong>Techniques</strong></p>
+<ul>
+<li><strong>Visual inspection:</strong> color the UMAP by several resolutions (<code>DimPlot(pbmc, group.by = cl_names)</code>).</li>
+<li><strong>Clustering tree:</strong> the <code>clustree</code> package shows how cells from each cluster split when the resolution increases. Prefer a resolution where clusters have a single parent. Many crossing arrows mean an unstable clustering.</li>
+<li><strong>Marker genes:</strong> run <code>FindAllMarkers()</code> and check whether neighboring clusters have distinct markers. If two clusters have no clear markers separating them, merge them by choosing a lower resolution.</li>
+<li><strong>Silhouette score:</strong> measures how well each cell fits its own cluster compared with the nearest other cluster (see <code>cluster::silhouette()</code> on the PCA embedding). Higher is better, but it favors a small number of clusters, so use it as a guide.</li>
+<li><strong>Stability (bootstrapping):</strong> re-cluster on subsets of cells or with different seeds and measure how often the same cells end up together (e.g.&nbsp;the <code>scclusteval</code> or <code>chooseR</code> approaches). Stable clusters are more trustworthy.</li>
+</ul>
+<section id="clustering-tree" class="level2">
+<h2 class="anchored" data-anchor-id="clustering-tree">Clustering tree</h2>
+<p>Let’s inspect the clustering tree</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb114"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb114-1"><a href="#cb114-1" aria-hidden="true" tabindex="-1"></a><span class="fu">clustree</span>(pbmc, <span class="at">prefix =</span> <span class="st">"leiden_"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-49-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="960"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Each row is one resolution (top to bottom: 0.2, 0.5, 0.8, 1.0, 1.2). Node size is the number of cells in a cluster, and arrows go from a cluster at one resolution to the clusters its cells land in at the next.</p>
+<p><strong>0.2 → 0.5 is where most of the structure appears.</strong> Four clusters become seven. Clusters 1, 2 and 3 each split in two, and cluster 4 passes through unchanged. All of these are clean splits, with each child coming from a single parent.</p>
+<p><strong>0.5 → 0.8</strong> Almost everything is one-to-one</p>
+<p><strong>0.8 → 1.0</strong> Nothing new. Everything is one-to-one</p>
+<p><strong>1.0 –&gt; 1.2</strong> Splits three clusters</p>
+</section>
+<section id="find-marker-genes" class="level2">
+<h2 class="anchored" data-anchor-id="find-marker-genes">Find marker genes</h2>
+<p>The clustering tree tells us which clusters split, but not whether a split is biologically meaningful. For that, we can ask whether the clusters are different enough to have their own marker genes. <code>FindAllMarkers()</code> compares each cluster to all other cells and returns the genes that are higher in that cluster. We will run FindAllMarkers for each resolution, extract top 10 marker genes/cluster and plot heatmaps of their expression</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb115"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb115-1"><a href="#cb115-1" aria-hidden="true" tabindex="-1"></a>heatmaps_top10_markers <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb115-2"><a href="#cb115-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb115-3"><a href="#cb115-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (res <span class="cf">in</span> cl_names){</span>
+<span id="cb115-4"><a href="#cb115-4" aria-hidden="true" tabindex="-1"></a>  markers <span class="ot">&lt;-</span> <span class="fu">FindAllMarkers</span>(pbmc, <span class="at">group.by =</span> res ,<span class="at">only.pos =</span> <span class="cn">TRUE</span>, <span class="at">min.pct =</span> <span class="fl">0.25</span>, <span class="at">logfc.threshold =</span> <span class="fl">0.25</span>)</span>
+<span id="cb115-5"><a href="#cb115-5" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb115-6"><a href="#cb115-6" aria-hidden="true" tabindex="-1"></a>  top10 <span class="ot">&lt;-</span> markers <span class="sc">%&gt;%</span></span>
+<span id="cb115-7"><a href="#cb115-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(p_val_adj <span class="sc">&lt;</span> <span class="fl">0.05</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb115-8"><a href="#cb115-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(cluster) <span class="sc">%&gt;%</span></span>
+<span id="cb115-9"><a href="#cb115-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">slice_max</span>(avg_log2FC, <span class="at">n=</span><span class="dv">10</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb115-10"><a href="#cb115-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">pull</span>(gene) <span class="sc">%&gt;%</span></span>
+<span id="cb115-11"><a href="#cb115-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">unique</span>()</span>
+<span id="cb115-12"><a href="#cb115-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb115-13"><a href="#cb115-13" aria-hidden="true" tabindex="-1"></a>  heatmaps_top10_markers[[res]] <span class="ot">&lt;-</span> <span class="fu">DoHeatmap</span>(pbmc, <span class="at">features =</span> top10, <span class="at">group.by =</span> res, <span class="at">size=</span><span class="dv">3</span>) <span class="sc">+</span> <span class="fu">ggtitle</span>(res)</span>
+<span id="cb115-14"><a href="#cb115-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Calculating marker statistics for 4 clusters using presto</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>  Calculating fold changes</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>  Running presto::wilcoxauc</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in DoHeatmap(pbmc, features = top10, group.by = res, size = 3): The
+following features were omitted as they were not found in the scale.data layer
+for the RNA assay: HLA-DOB, PKIG, TSPAN13, FCER2, KLRD1, CD33, TCF7, PIK3IP1,
+FLT3LG, TRAT1, CCR7, PRKCQ-AS1, LEF1</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Calculating marker statistics for 7 clusters using presto</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>  Calculating fold changes</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>  Running presto::wilcoxauc</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in DoHeatmap(pbmc, features = top10, group.by = res, size = 3): The
+following features were omitted as they were not found in the scale.data layer
+for the RNA assay: KLRF1, SH2D1B, BATF3, MS4A4A, HES4, MATK, CD8A, HLA-DOB,
+PKIG, TSPAN13, FCER2, SUSD3, TTC39C, SPOCK2, TRAT1, CD40LG, CD3D, LDHB, TCF7,
+FLT3LG, PIK3IP1, PRKCQ-AS1, LEF1, CCR7</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Calculating marker statistics for 8 clusters using presto</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>  Calculating fold changes</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>  Running presto::wilcoxauc</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in DoHeatmap(pbmc, features = top10, group.by = res, size = 3): The
+following features were omitted as they were not found in the scale.data layer
+for the RNA assay: LGMN, KLRF1, SH2D1B, MS4A4A, BATF3, HES4, HLA-DOB, PKIG,
+TSPAN13, FCER2, CD8A, SUSD3, SPOCK2, TRAT1, CD40LG, TCF7, AAK1, FLT3LG,
+PIK3IP1, PRKCQ-AS1, LEF1, CCR7</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Calculating marker statistics for 8 clusters using presto</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>  Calculating fold changes</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>  Running presto::wilcoxauc</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in DoHeatmap(pbmc, features = top10, group.by = res, size = 3): The
+following features were omitted as they were not found in the scale.data layer
+for the RNA assay: LGMN, KLRF1, SH2D1B, MS4A4A, BATF3, HES4, HLA-DOB, PKIG,
+TSPAN13, FCER2, CD8A, SUSD3, SPOCK2, TRAT1, CD40LG, TCF7, AAK1, FLT3LG,
+PIK3IP1, PRKCQ-AS1, LEF1, CCR7</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Calculating marker statistics for 10 clusters using presto</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>  Calculating fold changes</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>  Running presto::wilcoxauc</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in DoHeatmap(pbmc, features = top10, group.by = res, size = 3): The
+following features were omitted as they were not found in the scale.data layer
+for the RNA assay: RPS3, KLRF1, SH2D1B, LILRB4, CD300C, CPVL, MS4A4A, HES4,
+BATF3, CD7, LDHB, TCF7, OXNAD1, MATK, CD8A, HLA-DOB, PKIG, TSPAN13, FCER2,
+CSF3R, BST1, C12orf57, FLT3LG, PIK3IP1, AAK1, PRKCQ-AS1, LEF1, CCR7, SUSD3,
+SPOCK2, TRAT1, CD40LG</code></pre>
+</div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb136"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb136-1"><a href="#cb136-1" aria-hidden="true" tabindex="-1"></a>heatmaps_top10_markers</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>$leiden_0.2</code></pre>
+</div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-51-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="960"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+$leiden_0.5</code></pre>
+</div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-51-2.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="960"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+$leiden_0.8</code></pre>
+</div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-51-3.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="960"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+$leiden_1</code></pre>
+</div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-51-4.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="960"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+$leiden_1.2</code></pre>
+</div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-51-5.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="960"></p>
+</figure>
+</div>
+</div>
+</div>
+<p><strong>What we are looking for:</strong></p>
+<ul>
+<li><p>Clean block-diagonal pattern: each cluster lights up its own gene block, with little signal in other clusters.</p></li>
+<li><p>Specific, interpretable markers: canonical lineage genes (e.g.&nbsp;CD79A, S100A8, NKG7), not just a ranked list.</p></li>
+<li><p>New clusters that add a new block: a resolution step is worth it if the extra cluster has its own markers (e.g.&nbsp;DCs at 0.8).</p></li>
+<li><p>Persistence: splits that hold across several resolutions (confirm with clustree).</p></li>
+</ul>
+<p><strong>Overclustering:</strong></p>
+<ul>
+<li><p>A new cluster’s genes are a subset of its sibling’s, or the same genes shared with its neighbors, just graded.</p></li>
+<li><p>Top markers are MALAT1, ribosomal (RPS/RPL), mitochondrial or stress genes: a QC or state artifact, not a cell type.</p></li>
+<li><p>Blurry diagonal, with blocks that bleed into neighbors.</p></li>
+<li><p>Tiny clusters with no markers, or whose markers are low-expression and sparse.</p></li>
+</ul>
+<p><strong>Rule of thumb</strong></p>
+<ul>
+<li><p>Resolution heavy depends on what you are trying to find. If you only care about main lineages (for example T cells, B cells) because later on you will focus on only one, it’s completely fine to use small resolutions. If you want to identify subtypes of e.g. T cells, you need to increase the resolution. If you want to identify rare cell types you might even want to slightly overcluster and merge similar clusters later.</p></li>
+<li><p>In my opinion, if you’re not sure it is better to slightly overcluster than undercluster.</p></li>
+</ul>
+<p><strong>Leiden 0.2</strong>: When we look at the clustering tree, we see that 0.2 –&gt; 0.5 cleanly splits almost each cluster in 2. This suggests that at this resolution, clusters are a mix of different cell types. When we inspect the actual marker genes, we can see that it is a mixture of two lineages - T cells and NK (T: GZMK, CD8A, CCL5, KLRG1 and NK: GNLY, SPON2, FGFBP2, XCL2) (I goggled these genes and what cell type they might represent).</p>
+<p><strong>Leiden 0.5:</strong> We see a diagnonal on the heatmap. Some clusters look very similar and could represent the same cell type or a different subtypes of the same cell type. The tree shows that when we go 0.5 –&gt; 0.8 the mapping is almost one-to-one with some exceptions. Technically we could stop here but…</p>
+<p><strong>Leiden 0.8:</strong> The tree shows 0.8 is mostly one-to-one with a few exceptions. The heatmaps look very similar. But take a look at this small cluster 8 that emerged from cluster 3 from 0.5 split. It is small but it seems to have distinct marker genes. A quick lookup of these genes shows that cluster 8 may represent dendritic cells.</p>
+<p><strong>Leiden 1.2:</strong> The heatmap starts looking messy without a clear diagonal of yellow blocks. The new clusters don’t seem to be specific. 1.2 cluster 8 is a mixture: it inherits the DCs plus a slice of monocytes, so its markers are muddled. At 0.8 the DCs were cleaner (that is also shown in the tree). This says that the clusters became unstable. Cluster 10 expresses markers like MALAT1, RPS3 and CD8B. A cluster whose top markers are MALAT1 and a ribosomal gene is usually separated by RNA quality or ribosomal content, not by cell type.</p>
+<p>I think it is reasonable to choose leiden 0.8 as our clustering resolution. In my opinion, it represents clean cell types, including smaller population of DC without making the rest of the clusters unstable or loosing specificity.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb142"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb142-1"><a href="#cb142-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Idents</span>(pbmc) <span class="ot">&lt;-</span> <span class="st">"leiden_0.8"</span></span>
+<span id="cb142-2"><a href="#cb142-2" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(pbmc, <span class="at">label =</span> T)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-52-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="720"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="cell-type-annotation" class="level1">
+<h1>Cell type annotation</h1>
+<p>Clusters are only numbers. Annotation means assigning a cell type or state to each cluster, so that we can interpret the results biologically. Annotation depends on the resolution we chose, so it should come after we have settled on one. It is one of the most important steps in single-cell analysis. Correct annotation allows for discovery of new biology and dictates all post-hoc analyses. Incorrect cell type annotation might lead to wrong or misleading conclusions.</p>
+<p>There are many ways to annotate clusters. The most common approaches are:</p>
+<ul>
+<li><strong>Manual, marker-based:</strong> compare the top markers of each cluster (from <code>FindAllMarkers()</code>) with known cell type markers from the literature or from databases such as PanglaoDB and CellMarker. This is what we did informally above (e.g.&nbsp;GNLY for NK cells, and so on).</li>
+<li><strong>Manual, canonical marker-based</strong>. Sometimes there are well known marker genes for certain cell types that didn’t show up as top markers using marker detection. Sometimes depending on sequencing depth and other technical variables, canonical marker genes might not be detected at sufficient levels.</li>
+<li><strong>Automated, reference-based:</strong> transfer labels from an already annotated dataset, using tools such as <code>SingleR</code>, <code>Azimuth</code> or <code>CellTypist</code>. It is faster and more reproducible, but it can only label cell types that are present in the reference, and the labels depend on the quality of that reference.</li>
+</ul>
+<p>In practice, we use a combination of all these approaches, depending on the data, our prior expertise. Intersecting multiple methods gives us a higher confidence that our cluster represent true cell types.</p>
+<p>Things to keep in mind:</p>
+<ul>
+<li><strong>Use several markers per cell type.</strong> A single gene can be expressed in more than one cell type.</li>
+<li><strong>Clusters can be mixed.</strong> If a cluster contains two lineages, consider a higher resolution or sub-clustering it.</li>
+<li><strong>Clusters can be technical.</strong> A cluster without a clear cell type, with low-quality markers (e.g.&nbsp;<code>MALAT1</code>, ribosomal genes) or high mitochondrial content, may be a QC artifact and not a real population.</li>
+<li><strong>Labels are hypotheses.</strong> Annotations should be revisited when we learn more.</li>
+</ul>
+<blockquote class="blockquote">
+<p><strong>Exercise 2</strong></p>
+<p>This is a pbmc dataset, so we know what cell types to expect in this experiment. Find out what these cell types are and what their canonical marker genes are. Use google, publications and public databases (<a href="http://www.bio-bigdata.center/">CellMarker 2</a>, <a href="https://panglaodb.se/index.html">PanglaoDB</a>, <a href="https://cellxgene.cziscience.com/cellguide">CellGuide</a>). Use <code>FeaturePlot()</code> to confirm that the markers you found are detected and can represent a cell type. Make a table:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Cell type</th>
+<th>Proportion</th>
+<th>Canonical markers</th>
+<th>Cluster(s)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="even">
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="even">
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</blockquote>
+<blockquote class="blockquote">
+<p><strong>Exercise 3</strong></p>
+<p>Take a look at the heatmap of top marker genes. For each cluster, look up its top marker genes. What cell type can marker each represent? This is a reverse search of the previous exercise. You can utilize the same databases. Remember that some markers are more specific than others. If you are not sure, list more than one cell type. Make a table</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Cluster</th>
+<th>Markers</th>
+<th>Cell type(s)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>3</td>
+<td></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>4</td>
+<td></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>5</td>
+<td></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>6</td>
+<td></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>7</td>
+<td></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>8</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</blockquote>
+<blockquote class="blockquote">
+<p><strong>Exercise 4</strong></p>
+<p>Cross-reference the two approaches and see if both ways of annotations overlap or there are discrepancies.</p>
+<p>Assign a cell type to each cluster.</p>
+</blockquote>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb143"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb143-1"><a href="#cb143-1" aria-hidden="true" tabindex="-1"></a>labels <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
+<span id="cb143-2"><a href="#cb143-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">"1"</span> <span class="ot">=</span> <span class="st">""</span>,</span>
+<span id="cb143-3"><a href="#cb143-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">"2"</span> <span class="ot">=</span> <span class="st">""</span>,</span>
+<span id="cb143-4"><a href="#cb143-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">"3"</span> <span class="ot">=</span> <span class="st">""</span>,</span>
+<span id="cb143-5"><a href="#cb143-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">"4"</span> <span class="ot">=</span> <span class="st">""</span>,</span>
+<span id="cb143-6"><a href="#cb143-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">"5"</span> <span class="ot">=</span> <span class="st">""</span>,</span>
+<span id="cb143-7"><a href="#cb143-7" aria-hidden="true" tabindex="-1"></a>  <span class="st">"6"</span> <span class="ot">=</span> <span class="st">""</span>,</span>
+<span id="cb143-8"><a href="#cb143-8" aria-hidden="true" tabindex="-1"></a>  <span class="st">"7"</span> <span class="ot">=</span> <span class="st">""</span>,</span>
+<span id="cb143-9"><a href="#cb143-9" aria-hidden="true" tabindex="-1"></a>  <span class="st">"8"</span> <span class="ot">=</span> <span class="st">""</span></span>
+<span id="cb143-10"><a href="#cb143-10" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb143-11"><a href="#cb143-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb143-12"><a href="#cb143-12" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">RenameIdents</span>(pbmc, labels)</span>
+<span id="cb143-13"><a href="#cb143-13" aria-hidden="true" tabindex="-1"></a>pbmc<span class="sc">$</span>celltype <span class="ot">&lt;-</span> <span class="fu">Idents</span>(pbmc)   <span class="co"># save it, since Idents are easily overwritten</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<blockquote class="blockquote">
+<p><strong>Exercise 5</strong></p>
+<p>As a sanity check run <code>FindAllMarkers</code> on the new Idents and make sure that the results are correct. Prepare a figure showing:</p>
+<ol type="1">
+<li>UMAP grouped by celltype with each cluster labeled.</li>
+<li>A plot showing proportion of each cell type (e.g.&nbsp;stacked barplot)</li>
+<li>FeaturePlot with one canonical marker gene per cell type</li>
+<li>DotPlot or heatmap with top 5 marker genes per cell type</li>
+</ol>
+</blockquote>
+<section id="example-answer" class="level2">
+<h2 class="anchored" data-anchor-id="example-answer">Example answer</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Cell type</th>
+<th>Typical proportion (of PBMC)</th>
+<th>Canonical markers</th>
+<th>Cluster(s)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Naive CD4+ T</td>
+<td>~15-30%</td>
+<td>CCR7, SELL, TCF7, LEF1, IL7R (low)</td>
+<td>1 and 2?</td>
+</tr>
+<tr class="even">
+<td>Memory CD4+ T</td>
+<td>~15-25%</td>
+<td>IL7R, S100A4, CD40LG, AQP3</td>
+<td>2?</td>
+</tr>
+<tr class="odd">
+<td>CD8+ T (effector/memory)</td>
+<td>~5-15%</td>
+<td>CD8A, CD8B, GZMK, CCL5, GZMH</td>
+<td>4</td>
+</tr>
+<tr class="even">
+<td>NK</td>
+<td>~5-15%</td>
+<td>GNLY, NKG7, KLRF1, FGFBP2, SPON2</td>
+<td>7</td>
+</tr>
+<tr class="odd">
+<td>B</td>
+<td>~5-15%</td>
+<td>MS4A1, CD79A, CD79B, TCL1A</td>
+<td>5</td>
+</tr>
+<tr class="even">
+<td>CD14+ mono</td>
+<td>~10-25%</td>
+<td>CD14, LYZ, S100A8, S100A9, FCN1</td>
+<td>3</td>
+</tr>
+<tr class="odd">
+<td>CD16+ mono</td>
+<td>~2-8%</td>
+<td>FCGR3A, MS4A7, LST1, CDKN1C</td>
+<td>6?</td>
+</tr>
+<tr class="even">
+<td>Dendritic cells</td>
+<td>~1-2%</td>
+<td>FCER1A, CD1C, CLEC10A, CST3 (pDC: LILRA4, IL3RA)</td>
+<td>8</td>
+</tr>
+<tr class="odd">
+<td>Platelets/megakaryocytes</td>
+<td>&lt;1-2% (variable)</td>
+<td>PPBP, PF4, GNG11</td>
+<td>none detected</td>
+</tr>
+</tbody>
+</table>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb144"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb144-1"><a href="#cb144-1" aria-hidden="true" tabindex="-1"></a>markers <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb144-2"><a href="#cb144-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Naive CD4 T"</span>    <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"CCR7"</span>, <span class="st">"SELL"</span>, <span class="st">"TCF7"</span>, <span class="st">"LEF1"</span>),</span>
+<span id="cb144-3"><a href="#cb144-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Memory CD4 T"</span>   <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"IL7R"</span>, <span class="st">"S100A4"</span>, <span class="st">"CD40LG"</span>, <span class="st">"AQP3"</span>),</span>
+<span id="cb144-4"><a href="#cb144-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">"CD8 T"</span>          <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"CD8A"</span>, <span class="st">"CD8B"</span>, <span class="st">"GZMK"</span>, <span class="st">"CCL5"</span>, <span class="st">"GZMH"</span>),</span>
+<span id="cb144-5"><a href="#cb144-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">"NK"</span>             <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"GNLY"</span>, <span class="st">"NKG7"</span>, <span class="st">"KLRF1"</span>, <span class="st">"FGFBP2"</span>, <span class="st">"SPON2"</span>),</span>
+<span id="cb144-6"><a href="#cb144-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">"B"</span>              <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"MS4A1"</span>, <span class="st">"CD79A"</span>, <span class="st">"CD79B"</span>, <span class="st">"TCL1A"</span>),</span>
+<span id="cb144-7"><a href="#cb144-7" aria-hidden="true" tabindex="-1"></a>  <span class="st">"CD14 Mono"</span>      <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"CD14"</span>, <span class="st">"LYZ"</span>, <span class="st">"S100A8"</span>, <span class="st">"S100A9"</span>, <span class="st">"FCN1"</span>),</span>
+<span id="cb144-8"><a href="#cb144-8" aria-hidden="true" tabindex="-1"></a>  <span class="st">"CD16 Mono"</span>      <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"FCGR3A"</span>, <span class="st">"MS4A7"</span>, <span class="st">"LST1"</span>, <span class="st">"CDKN1C"</span>),</span>
+<span id="cb144-9"><a href="#cb144-9" aria-hidden="true" tabindex="-1"></a>  <span class="st">"DC"</span>             <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"FCER1A"</span>, <span class="st">"CD1C"</span>, <span class="st">"CLEC10A"</span>, <span class="st">"CST3"</span>),</span>
+<span id="cb144-10"><a href="#cb144-10" aria-hidden="true" tabindex="-1"></a>  <span class="st">"pDC"</span>            <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"LILRA4"</span>, <span class="st">"IL3RA"</span>, <span class="st">"TCF4"</span>),</span>
+<span id="cb144-11"><a href="#cb144-11" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Platelet"</span>       <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"PPBP"</span>, <span class="st">"PF4"</span>, <span class="st">"GNG11"</span>),</span>
+<span id="cb144-12"><a href="#cb144-12" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Pan-T"</span>          <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"CD3D"</span>, <span class="st">"CD3E"</span>)</span>
+<span id="cb144-13"><a href="#cb144-13" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb145"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb145-1"><a href="#cb145-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DotPlot</span>(pbmc,</span>
+<span id="cb145-2"><a href="#cb145-2" aria-hidden="true" tabindex="-1"></a>        <span class="at">features =</span> markers,</span>
+<span id="cb145-3"><a href="#cb145-3" aria-hidden="true" tabindex="-1"></a>        <span class="at">group.by =</span> <span class="st">"leiden_0.8"</span>,     <span class="co"># or "celltype" once annotated</span></span>
+<span id="cb145-4"><a href="#cb145-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">cols     =</span> <span class="fu">c</span>(<span class="st">"lightgrey"</span>, <span class="st">"firebrick"</span>),</span>
+<span id="cb145-5"><a href="#cb145-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">dot.scale =</span> <span class="dv">6</span>) <span class="sc">+</span></span>
+<span id="cb145-6"><a href="#cb145-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">RotatedAxis</span>() <span class="sc">+</span></span>
+<span id="cb145-7"><a href="#cb145-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">strip.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">0</span>, <span class="at">size =</span> <span class="dv">8</span>),</span>
+<span id="cb145-8"><a href="#cb145-8" aria-hidden="true" tabindex="-1"></a>        <span class="at">panel.spacing =</span> <span class="fu">unit</span>(<span class="fl">0.15</span>, <span class="st">"lines"</span>),</span>
+<span id="cb145-9"><a href="#cb145-9" aria-hidden="true" tabindex="-1"></a>        <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">7</span>)) <span class="sc">+</span></span>
+<span id="cb145-10"><a href="#cb145-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">"Cluster (res 0.8)"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-55-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="1440"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb146"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb146-1"><a href="#cb146-1" aria-hidden="true" tabindex="-1"></a><span class="fu">FeaturePlot</span>(pbmc, <span class="fu">c</span>(<span class="st">'IL7R'</span>, <span class="st">'CCR7'</span>, <span class="st">'CD14'</span>, <span class="st">'LYZ'</span>, <span class="st">'IL7R'</span>, <span class="st">'S100A4'</span>, <span class="st">'MS4A1'</span>, <span class="st">'CD8A'</span>, <span class="st">'FCGR3A'</span>, <span class="st">'MS4A7'</span>, <span class="st">'GNLY'</span>, <span class="st">'NKG7'</span>, <span class="st">'FCER1A'</span>, <span class="st">'CST3'</span>, <span class="st">'PPBP'</span>), <span class="at">order =</span> T, <span class="at">label =</span> T)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-56-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="1440"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb147"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb147-1"><a href="#cb147-1" aria-hidden="true" tabindex="-1"></a>labels <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
+<span id="cb147-2"><a href="#cb147-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">"1"</span> <span class="ot">=</span> <span class="st">"Naive CD4+ T"</span>,</span>
+<span id="cb147-3"><a href="#cb147-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">"2"</span> <span class="ot">=</span> <span class="st">"Memory CD4+ T"</span>,</span>
+<span id="cb147-4"><a href="#cb147-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">"3"</span> <span class="ot">=</span> <span class="st">"CD14+ monocytes"</span>,</span>
+<span id="cb147-5"><a href="#cb147-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">"4"</span> <span class="ot">=</span> <span class="st">"CD8+ T"</span>,</span>
+<span id="cb147-6"><a href="#cb147-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">"5"</span> <span class="ot">=</span> <span class="st">"B cells"</span>,</span>
+<span id="cb147-7"><a href="#cb147-7" aria-hidden="true" tabindex="-1"></a>  <span class="st">"6"</span> <span class="ot">=</span> <span class="st">"CD16+ monocytes"</span>,</span>
+<span id="cb147-8"><a href="#cb147-8" aria-hidden="true" tabindex="-1"></a>  <span class="st">"7"</span> <span class="ot">=</span> <span class="st">"NK"</span>,</span>
+<span id="cb147-9"><a href="#cb147-9" aria-hidden="true" tabindex="-1"></a>  <span class="st">"8"</span> <span class="ot">=</span> <span class="st">"DC"</span></span>
+<span id="cb147-10"><a href="#cb147-10" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb147-11"><a href="#cb147-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb147-12"><a href="#cb147-12" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">RenameIdents</span>(pbmc, labels)</span>
+<span id="cb147-13"><a href="#cb147-13" aria-hidden="true" tabindex="-1"></a>pbmc<span class="sc">$</span>celltype <span class="ot">&lt;-</span> <span class="fu">Idents</span>(pbmc)   <span class="co"># save it, since Idents are easily overwritten</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb148"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb148-1"><a href="#cb148-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(pbmc, <span class="at">label =</span> T)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Seurat_pbmc_files/figure-html/unnamed-chunk-58-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="720"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb149"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb149-1"><a href="#cb149-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(pbmc, <span class="st">'data/pbmc_seurat.rds'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
