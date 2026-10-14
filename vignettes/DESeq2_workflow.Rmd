@@ -18,6 +18,27 @@ knitr::opts_chunk$set(
 )
 ```
 
+# Prerequisites
+
+Basic R experience is recommended.
+Throughout this course there will be a lot of dataframe manipulation and plotting, so familiarity with tidyverse and ggplot is valuable.
+If you feel like you need more practice, these are really good tutorials and resources:
+
+1.  [Harvard Bioinformatics Core](https://hbctraining.github.io/main/) This covers all of R from the very basics. 
+
+    - **R syntax and data structure - read this one before anything else**
+
+    - Introduction to R and individual modules based on your needs, e.g.
+      [Data wrangling](https://hbctraining.github.io/Intro-to-R-flipped/lessons/08_data-wrangling-2.html).
+
+2.  [R for data science](https://r4ds.hadley.nz) This is an amazing textbook that covers basically all you need to know about tidyverse
+
+    - I would prioritize Data transformation section but if you are not familiar with ggplot then do Chapter 1 first
+
+    - 12.5.5 Conditional transformations
+
+    - Then chapter 19: joins
+
 # Note
 
 Use this vignette as a general guideline, not a ground truth.

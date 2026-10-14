@@ -1,0 +1,101 @@
+---
+title: "Seurat workflow: Integration"
+description: "Single-cell RNA-seq analysis with Seura Part II: Integration of Ifnb."
+author: "Wiktor Mikolajczak"
+editor: visual
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  fig.width  = 6,
+  fig.height = 4,
+  dpi        = 120,
+  fig.align  = "center"
+)
+```
+
+# Note
+
+Introduction to Seurat workflow
+
+This vignette is based on [Seurat - Guided clustering tutorial](https://satijalab.org/seurat/articles/pbmc3k_tutorial)
+
+Use this vignette as a general guideline, not a ground truth.
+There is no one way to analyze genomics data.
+Sometimes you have to adjust your analysis based on your research question, experimental design etc.
+
+In the future you will analyze genomic data that you or other people generated.
+It is vital that, before any analysis, you familiarize yourself with the data set:
+
+- What is the biological question you are trying to answer?
+  What are the hypotheses?
+
+- What is the study design and how was the experiment done (sample type, treatment, genetic knockout, disease, sample size, system, technology, are there any batches etc.)?
+
+- How was the data processed (software, genome version etc.)?
+
+- What type of data are available (raw data, count matrices, sample/cell metadata)?
+
+Instead of just copy-pasting the code, try implementing the following logic:
+
+1.  Read the vignette first. Try to understand each step.
+2.  Without looking at the vignette, write down the main steps of the workflow (use headers to build an outline of your document at the same time). For each step, write a short comment: What is this step for?, Why is it important? Compare your answers with the vignette. It is ok if you don't remember the exact code or the name of the functions. It's more important that you understand each step conceptually.
+3.  After each step write down your observations. What has changed?
+4.  At the end of your analysis, think about and write down conclusions. It doesn't have to be an academic assay but try to state the main points and do a little bit of goggling.
+    - Are you able to answer the initial research question and confirm/deny the hypotheses?
+    - Try to connect what is known with what you have found.
+
+The goal of this training is to help you understand the general workflow of single-cell RNA-seq analysis.
+Although using AI can be beneficial and speed up your analysis, it is important that you have a good understanding of topics covered in this training and you have truly mastered the skill.
+Only then you can use AI to help you with the analysis.
+It is fine, to ask AI to help you with customizing a ggplot, but try not to use it for the actual analysis.
+
+If you don't know what a function does, run `?function_name` in Console.
+
+# About the dataset
+
+We will use the `Crowell19_4vs4` dataset from the `muscData` package.
+It is a single-cell RNA-seq experiment of the mouse brain (prefrontal cortex) from [Crowell et al.](https://doi.org/10.1038/s41467-020-19894-4).
+There are 8 samples from 8 different mice: 4 were treated with lipopolysaccharide (LPS), a bacterial molecule that triggers an inflammatory response, and 4 with a vehicle (control).
+Together there are about 25,000 cells and 11,000 genes.
+
+The `colData` has a column for the sample (`sample_id`), the condition (`group_id`: `Vehicle` or `LPS`) and the cell type (`cluster_id`), e.g. excitatory and inhibitory neurons, astrocytes, microglia and oligodendrocytes.
+Each mouse belongs to a single condition, so the 4 mice per condition are our biological replicates.
+
+Things to keep in mind:
+
+- **The data are already processed.** The object contains QC metrics (mitochondrial percentage, doublet scores) and cluster labels from the original analysis. Use them as a reference, but check them yourself.
+- **Gene names are mouse genes**, in the form `ENSEMBL ID.symbol` (e.g. `ENSMUSG00000051951.Xkr4`). Mitochondrial genes start with `mt-`, not `MT-`.
+- **Cell types are very unbalanced.** Excitatory neurons make up most of the cells, while some types (e.g. CPE cells) have only about 100.
+
+The design makes this a good example for integration and for comparing conditions: do the cells cluster by cell type or by LPS treatment, and which genes respond to LPS in each cell type?
+
+# Libraries
+
+```{r, eval=FALSE}
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install("muscData")
+library(muscData)
+```
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(patchwork)
+library(Seurat)
+library(clustree)
+library(muscData)
+```
+
+# Import data
+
+```{r}
+sce <- Crowell19_4vs4()  
+```
+
+```{r}
+colData(sce)
+```
+
+library(muscData); library(Seurat) sce \<- Kang18_8vs8() obj \<- CreateSeuratObject(counts(sce), meta.data = as.data.frame(colData(sce)))
