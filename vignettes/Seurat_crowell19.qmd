@@ -59,14 +59,9 @@ It is a single-cell RNA-seq experiment of the mouse brain (prefrontal cortex) fr
 There are 8 samples from 8 different mice: 4 were treated with lipopolysaccharide (LPS), a bacterial molecule that triggers an inflammatory response, and 4 with a vehicle (control).
 Together there are about 25,000 cells and 11,000 genes.
 
-The `colData` has a column for the sample (`sample_id`), the condition (`group_id`: `Vehicle` or `LPS`) and the cell type (`cluster_id`), e.g. excitatory and inhibitory neurons, astrocytes, microglia and oligodendrocytes.
-Each mouse belongs to a single condition, so the 4 mice per condition are our biological replicates.
-
-Things to keep in mind:
-
-- **The data are already processed.** The object contains QC metrics (mitochondrial percentage, doublet scores) and cluster labels from the original analysis. Use them as a reference, but check them yourself.
-- **Gene names are mouse genes**, in the form `ENSEMBL ID.symbol` (e.g. `ENSMUSG00000051951.Xkr4`). Mitochondrial genes start with `mt-`, not `MT-`.
-- **Cell types are very unbalanced.** Excitatory neurons make up most of the cells, while some types (e.g. CPE cells) have only about 100.
+The cells were already filtered for low quality: there are no cells with fewer than 299 genes or with more than about 9% mitochondrial reads.
+There is no single fixed cutoff, though (for example, 498 cells have more than 5% mitochondrial reads), which suggests the thresholds were chosen from the data.
+We will still look at the QC plots before deciding whether to filter further.
 
 The design makes this a good example for integration and for comparing conditions: do the cells cluster by cell type or by LPS treatment, and which genes respond to LPS in each cell type?
 
@@ -89,13 +84,3 @@ library(muscData)
 ```
 
 # Import data
-
-```{r}
-sce <- Crowell19_4vs4()  
-```
-
-```{r}
-colData(sce)
-```
-
-library(muscData); library(Seurat) sce \<- Kang18_8vs8() obj \<- CreateSeuratObject(counts(sce), meta.data = as.data.frame(colData(sce)))
