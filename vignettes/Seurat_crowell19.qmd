@@ -57,30 +57,635 @@ If you don't know what a function does, run `?function_name` in Console.
 We will use the `Crowell19_4vs4` dataset from the `muscData` package.
 It is a single-cell RNA-seq experiment of the mouse brain (prefrontal cortex) from [Crowell et al.](https://doi.org/10.1038/s41467-020-19894-4).
 There are 8 samples from 8 different mice: 4 were treated with lipopolysaccharide (LPS), a bacterial molecule that triggers an inflammatory response, and 4 with a vehicle (control).
-Together there are about 25,000 cells and 11,000 genes.
-
-The cells were already filtered for low quality: there are no cells with fewer than 299 genes or with more than about 9% mitochondrial reads.
-There is no single fixed cutoff, though (for example, 498 cells have more than 5% mitochondrial reads), which suggests the thresholds were chosen from the data.
-We will still look at the QC plots before deciding whether to filter further.
 
 The design makes this a good example for integration and for comparing conditions: do the cells cluster by cell type or by LPS treatment, and which genes respond to LPS in each cell type?
 
 # Libraries
-
-```{r, eval=FALSE}
-if (!require("BiocManager", quietly = TRUE))
-  install.packages("BiocManager")
-
-BiocManager::install("muscData")
-library(muscData)
-```
 
 ```{r, warning=FALSE, message=FALSE}
 library(tidyverse)
 library(patchwork)
 library(Seurat)
 library(clustree)
-library(muscData)
+library(readxl)
+library(scuttle)
+library(ggridges)
+library(scDblFinder)
+library(BiocParallel)
+library(harmony)
 ```
 
 # Import data
+
+Data can be downloaded from [figshare](https://figshare.com/articles/dataset/On_the_discovery_of_population-specific_state_transitions_from_single-cell_RNA_sequencing_data/8976473).
+Each sample is a separate library.
+With the pbmc data we had only one sample so we had to create one seurat object.
+Here we need to create 8 objects.
+
+```{r}
+sample_metadata <- read_xlsx("data/crowell19/metadata.xlsx")
+```
+
+```{r}
+# First we have to swap genes.tsv.gz to features.tsv.gz. otherwise seurat wont read it
+dirs <- list.dirs("data/crowell19", recursive = F)
+
+for (d in dirs) {
+  old <- file.path(d, "genes.tsv.gz")
+  new <- file.path(d, "features.tsv.gz")
+  
+  if (file.exists(old) && !file.exists(new)) {
+    file.rename(old, new)
+  }
+}
+```
+
+## Create seurat objects
+
+Instead of copy-pasting and adjusting code for each sample individually, we're gonna be smart about and use a for loop to streamline the process.
+
+```{r}
+# 1. Get the paths for each sample
+dirs <- list.dirs("data/crowell19", recursive = F)
+
+# 2. create an empty list that will store all seurat objects
+seurat_objs <- list()
+
+# 2. Loop over dirs
+for (dir in dirs){
+  # Extracts the name of the last folder = sample name
+  sample <- basename(dir)
+  # Subset the metadata to individual sample
+  sample_df <- sample_metadata[sample_metadata$`Sample ID` == sample, ]
+  
+  obj <- Read10X(dir)
+  so <- CreateSeuratObject(obj, project = sample, min.cells = 10)
+  
+  # Create additional columns in metadata
+  so$sample <- sample
+  so$condition <- sample_df$Characteristics
+  
+  # add the object to the list
+  seurat_objs[[sample]] <- so
+}
+
+```
+
+```{r}
+length(seurat_objs)
+names(seurat_objs)
+head(seurat_objs[["LC016"]]@meta.data)
+head(seurat_objs[["LC017"]]@meta.data)
+```
+
+## Merging into one object
+
+Now we have a list of 8 Seurat objects.
+We can merge them into one object.
+That is why we added the information to meta data at the beginning, so we are able to tell the samples apart in a merged object.
+
+```{r}
+so <- merge(x= seurat_objs[[1]], y= seurat_objs[-1], add.cell.ids = names(seurat_objs)) # x has to be a seurat obj, y can be a list of seurat objs, that's why x is the first element of the list, and y is the list without the first object
+```
+
+```{r}
+so
+```
+
+After merging, the RNA assay has now 8 count layers - separate layer for each sample.
+
+```{r}
+table(so$sample)
+```
+
+The metadatas of individual seurat objects are now merged into one.
+
+Single-cell data can take lots of memory and we should be mindful of any large objects that we don't longer need.
+We can remove `seurat_objs` from the environment, because we will be using the merged one.
+
+```{r}
+rm(seurat_objs)
+gc()
+```
+
+# QC and prefiltering
+
+## MAD outliers
+
+In the pbmc dataset we looked at the distribution of multiple metrics and determined the cutoffs.
+It is easy with one sample.
+Here we have 8 samples, and we can't set one threshold for all samples, because each of them has a different distribution.
+We could look and individual distributions and set the thresholds manually for each sample.
+For 8 samples it' already a lot, so if we had 30 samples, that would be cumbersome.
+
+Instead of setting thresholds manually for each sample individually, we're gonna use some tricks to streamline the process.
+We will use an approach that involves MAD.
+
+**MAD** is the median absolute deviation: the median of the distances of all values from their median.
+It measures how spread out the values are, like the standard deviation, but it is not pulled around by extreme values.
+That matters here, because the low-quality cells we want to find are exactly the extreme values.
+
+A cell is marked as an outlier if its value is more than a chosen number of MADs (commonly 3) away from the median of its sample:
+
+$$\text{outlier if } |x - \text{median}(x)| > n \times \text{MAD}(x)$$
+
+A few practical points:
+
+- **Run it per sample.** Each sample gets its own median and MAD, so the thresholds adapt to the sample. That is what makes it work for 8 samples, or 30, without setting cutoffs by hand.
+- **Use the right side.** For the number of counts and the number of genes, only low values are a problem (empty droplets, damaged cells). For the percent of mitochondrial reads, only high values are a problem (dying cells).
+- **Log-transform counts and genes first.** Their distributions are skewed, so MADs work better on the log scale.
+- **The number of MADs is a choice.** 3 is a common default, and 5 is more permissive. Look at the plots to check that the thresholds make sense.
+
+First we will calculate percent mt for each cell
+
+```{r}
+so <- PercentageFeatureSet(so, pattern = '^mt-', col.name = "mito.percent") # mt - because its mouse
+```
+
+Let's first see how the distributions for each metric look like before we do anything.
+I'm feeling fancy and want to make my own plots.
+
+```{r}
+multi_qc_plot <- function(seurat_obj, sample_col = 'orig.ident', metrics=c("nCount_RNA", 'nFeature_RNA', 'mito.percent') ,log_metrics = c("nCount_RNA", 'nFeature_RNA'), zoom_quantile = 0.95) {
+  
+  df <- seurat_obj[[]]
+  plots <- list()
+  
+  for (metric in metrics) {
+    # log10 only for the metrics listed in log_metrics (not for percentages)
+    df$value <- df[[metric]]
+    xlab <- metric
+    zoom <- NULL
+    if (metric %in% log_metrics) {
+      df$value <- log2(df$value)
+      xlab <- paste0("log2(", metric, ")")
+    } else if (!is.null(zoom_quantile)) {
+      # for metrics that are not logged, zoom in on the bulk of the cells,
+      # so a long tail of outliers does not squish the distributions
+      zoom <- c(min(df$value), quantile(df$value, zoom_quantile))
+    }
+    
+    plots[[metric]] <- ggplot(df, aes(x = value, y = .data[[sample_col]], fill = .data[[sample_col]])) +
+      # ndensity scales each sample to its own peak, trim stops the density at the data range
+      ggridges::geom_density_ridges(stat = "density", aes(height = after_stat(ndensity)), trim = TRUE) +
+      geom_vline(xintercept = median(df$value), colour = "red") +
+      coord_cartesian(xlim = zoom) +
+      scale_fill_brewer(palette = "Pastel2") +
+      labs(x = xlab, y = NULL) +
+      ggridges::theme_ridges() +
+      theme(legend.position = "none")
+  }
+  
+  return(patchwork::wrap_plots(plots))
+}
+
+```
+
+```{r, fig.width=12, message=FALSE}
+multi_qc_plot(so, log_metrics = NULL ,zoom_quantile = .99)
+```
+
+```{r}
+so[[]] %>%
+  group_by(sample) %>%
+  summarize(
+    across(
+      c(nFeature_RNA, nCount_RNA, mito.percent),
+      list(min = min, median = median, max = max),
+      .names = "{.col}_{.fn}"
+    ),
+    n_cells = n()
+  )
+```
+
+You can clearly see that the distributions of the metrics vary a lot between the samples.
+That is why we cannot inspect them together.
+
+Let's add those MAD outliers.
+We will use `isOutlier()` function from `scuttle`, that takes a metric and a batch vectors and performes per sample QC.
+TRUE means that this cell is an outlier
+
+```{r}
+so$umi_outlier <- isOutlier(so$nCount_RNA, type = 'both', nmads = 3, log=T, batch = so$orig.ident)
+so$ngenes_outlier <- isOutlier(so$nFeature_RNA, type = 'both', nmads = 3, log=T, batch = so$orig.ident)
+so$mito_outlier <- isOutlier(so$mito.percent, type = 'higher', nmads = 3, log=F, batch = so$orig.ident)
+```
+
+We can check the actual thresholds here
+
+```{r}
+attr(isOutlier(so$nCount_RNA, nmads = 3, type = "both", batch = so$orig.ident, log = T), "thresholds")
+attr(isOutlier(so$nFeature_RNA, nmads = 3, type = "both", batch = so$orig.ident, log=T), "thresholds")
+attr(isOutlier(so$mito.percent, nmads = 3, type = "higher", batch = so$orig.ident,log=F),  "thresholds")
+```
+
+```{r}
+table(so$umi_outlier, so$sample)
+table(so$ngenes_outlier, so$sample)
+table(so$mito_outlier, so$sample)
+```
+
+Most of the samples have generally low mito% with low spread.
+LC020 has a higher spread.
+It might just be sample specific effect that is driven by certain cell types, but it might also suggest of dying or lyzed cells.
+Let's see the relationship between mito% and #genes
+
+```{r, fig.width=20, fig.height=10}
+FeatureScatter(so, "nFeature_RNA", 'mito.percent', group.by = 'mito_outlier', split.by = 'sample', ncol = 4)
+```
+
+I don't want to set a strict threshold of 5% because maybe there are cell specific to a sample where they naturally have a higher mito content.
+Lots of samples are very clean so the mad cutoffs are very strict.
+I going to combine MAD with a floor of 5%, so the cutoff cannot be lower than 5%.
+If I see that LC020 behaves abnormally during clustering and UMAP, I can always go back and remove more cells.\
+
+```{r}
+mito_outlier <- isOutlier(so$mito.percent, nmads = 3, type = "higher", batch = so$orig.ident, log = FALSE)
+
+# Uses 3 MADs for dirtier batches (LC019, LC020, LC025), and a 5% floor for ultra-clean batches
+so$mito_outlier <- as.logical(mito_outlier) & (so$mito.percent > 5)
+```
+
+```{r, fig.width=20, fig.height=10}
+FeatureScatter(so, "nFeature_RNA", 'mito.percent', group.by = 'mito_outlier', split.by = 'sample', ncol = 4)
+```
+
+```{r}
+table(so$mito_outlier, so$sample)
+```
+
+## Doublet detection
+
+A **doublet** is a droplet that captured two (or more) cells instead of one.
+Its expression profile is a mix of both cells, so it can look like a new cell type that does not exist, or it can bridge two real clusters.
+Doublets also tend to have more counts and more genes than single cells.
+
+The rate of doublets increases with the number of cells loaded: for 10x data it is roughly 1% for every 1,000 cells recovered, so in a sample with 5,000 cells we expect around 5%.
+
+Most tools work in a similar way:
+
+1.  Simulate artificial doublets by combining the profiles of randomly chosen pairs of cells from the same sample.
+2.  Place the real and the artificial cells together in a low-dimensional space (PCA).
+3.  Give each real cell a doublet score, based on how many of its neighbors are artificial doublets.
+4.  Call the cells with the highest scores doublets, using a threshold chosen by the tool.
+
+Popular tools are `scDblFinder`, `DoubletFinder`, `scds` and `Scrublet`.
+
+Things to keep in mind:
+
+- **Run it per sample (library).** Doublets can only form between cells that were in the same droplet run, so a doublet is never a mix of cells from two different samples. Running it on the merged object would be wrong.
+- **Run it before filtering.** Doublets are often removed by the count filters, and the tools need the full set of cells to simulate doublets from. The only filtering that should be applied before doublet detection is filtering out empty droplets, which cell ranger already does. But make sure to check the recommendations for the package that you're going to use.
+- **It only finds some doublets.** Doublets made of two similar cells (e.g. two neurons) look like a single cell and are hard to detect. The tools are better at doublets made of two different cell types.
+- **Check the result.** Look at the doublet cells on the UMAP and at their marker genes after clustering. A cluster made mostly of doublets, with markers of two cell types, can be removed.
+
+We will use `scDblFinder`
+
+`scDblFinder` doesn't work on Seurat object, it needs a `SingleCellExperiment` object.
+Thankfully it is very easy to convert Seurat into SCE.
+We need to join the count layers before we convert Seurat to SCE.
+I'm gonna create a custom function to streamline the process.
+
+```{r}
+doublet_finder <- function(seurat_object, samples = "orig.ident", BPPARAM = NULL) {
+  if (is.null(BPPARAM)) BPPARAM <- BiocParallel::SerialParam()
+  
+  seurat_object <- JoinLayers(seurat_object)
+  sce <- as.SingleCellExperiment(seurat_object)
+  
+  # Run doublet detection (parallel if BPPARAM is a MulticoreParam/SnowParam)
+  sce <- scDblFinder(sce = sce, clusters = TRUE, samples = samples, BPPARAM = BPPARAM)
+  
+  # Add doublet score and call to the Seurat metadata
+  idx <- match(colnames(seurat_object), colnames(sce))
+  doublet_score <- sce$scDblFinder.score[idx]
+  doublet       <- sce$scDblFinder.class[idx] == "doublet"
+  
+  return(list(doublet_score = doublet_score, doublet = doublet))
+}
+```
+
+```{r}
+doublets <- doublet_finder(so, samples="orig.ident", BPPARAM = BiocParallel::MulticoreParam(workers = 4))
+so$doublet_score <- doublets$doublet_score
+so$doublet <- doublets$doublet
+```
+
+If this is too much for your computer to handle, import [this table](https://github.com/wiktormiko/Intro-to-genomics/blob/main/vignettes/data/crowell19/crowell_metadata_doublet_calls.csv) and extract the `doublet` and `doublet_score` columns and add to your metadata.
+
+`data/crowell_metadata_doublet_calls.csv`
+
+```{r}
+table(so$doublet, so$sample)
+```
+
+::: callout-note
+## Exercise 1
+
+> Are the numbers of doublets detected in each sample to be expected or are there any abnormalities?
+> For each sample plot a relation of nFeature to nCount and color by doublet identity.
+:::
+
+```{r}
+
+```
+
+Let's combine all these together
+
+```{r}
+so$is_outlier <- so$umi_outlier | so$ngenes_outlier | so$mito_outlier| so$doublet
+```
+
+```{r}
+table(so$sample, so$is_outlier)
+```
+
+```{r, fig.width=10, fig.height=8}
+p1 <- so[[]] %>%
+  ggplot(aes(x=nFeature_RNA, y=nCount_RNA, color=is_outlier)) +
+  geom_point() +
+  facet_wrap(~sample, ncol=2)
+
+p2 <- so[[]] %>%
+  ggplot(aes(x=nFeature_RNA, y=mito.percent, color=is_outlier)) +
+  geom_point() +
+  facet_wrap(~sample, ncol=2)
+  
+p1 + p2
+```
+
+::: callout-note
+## Exercise 2
+
+Do you think the thresholds that we applied make sense?
+Why?
+Why not?
+Make scatter plots showing relationships between different metrics and color by `is_outlier`.
+:::
+
+```{r}
+so
+so <- subset(so, !is_outlier)
+so
+```
+
+```{r}
+saveRDS(so, "data/seurat_crowell.rds")
+```
+
+# Standard processing
+
+## Keep the layers split by sample
+
+We run the regular processing, but with the per-sample count layers kept separate.
+When the RNA assay has one layer per sample, `FindVariableFeatures()` is run on each layer separately and a consensus set of HVGs is then taken across samples.
+This way the HVGs are not dominated by one large or batch-specific sample.
+If you have joined the layers (e.g. with `JoinLayers()`), split them again by sample before this step:
+
+``` r
+so[["RNA"]] <- split(so[["RNA"]], f = so$sample)
+```
+
+```{r}
+so
+```
+
+Layers are split, we don't need to do anything.
+
+We will calculate cell cycle scores.
+Seurat only provides lists for human genome, but we can convert them to mouse.
+Code taken from [here](https://www.r-bloggers.com/2016/10/converting-mouse-to-human-gene-names-with-biomart-package/)
+
+```{r}
+library(babelgene)
+hs2mm <- function(g) unique(orthologs(g, "mouse", human = TRUE)$symbol)
+
+s.genes   <- intersect(hs2mm(cc.genes.updated.2019$s.genes),   rownames(so))
+g2m.genes <- intersect(hs2mm(cc.genes.updated.2019$g2m.genes), rownames(so))
+
+c(S = length(s.genes), G2M = length(g2m.genes))   # human input: 43 and 54, from memory
+
+so <- CellCycleScoring(so, s.features = s.genes, g2m.features = g2m.genes)
+table(so$Phase, so$orig.ident)
+```
+
+```{r}
+s.genes <- convertHumanGeneList(cc.genes.updated.2019$s.genes)
+g2m.genes <- convertHumanGeneList(cc.genes.updated.2019$g2m.genes)
+```
+
+```{r}
+so <- so |>
+  NormalizeData() |> 
+  CellCycleScoring(pbmc, s.features = s.genes, g2m.features = g2m.genes) |> 
+  FindVariableFeatures() |> 
+  ScaleData() |> 
+  RunPCA()
+```
+
+```{r}
+ElbowPlot(so, ndims=30)
+```
+
+```{r}
+so <- so |> 
+  FindNeighbors(dims = 1:20, verbose = F) |> 
+  FindClusters(resolution = 0.8, algorithm = 4, cluster.name = 'leiden_0.8_unintegrated', verbose = F) |> 
+  RunUMAP(reduction.name = 'umap_unintegrated', dims = 1:20, verbose = F)
+```
+
+```{r, fig.width=15}
+DimPlot(so, reduction = 'umap_unintegrated', group.by = c('leiden_0.8_unintegrated', 'sample', 'condition'), shuffle = T)
+```
+
+```{r, fig.width=15, fig.height=8}
+DimPlot(so, reduction = 'umap_unintegrated', group.by = 'leiden_0.8_unintegrated', split.by = 'sample', ncol = 4, label = T)
+```
+
+When we look at the umap plots, although samples seem to overlap quite well, there are still some discrepancies.
+Some clusters are dominated by one or two samples, one cluster still separates by condition.
+Although, there might be cell types that are specific to a sample or condition, it is more likely that some clusters are not driven by cell type, but by sample/library.
+The goal of clustering is that each cluster represent a cell type, not sample/library.
+That's why we we often use **intergration**, when we are dealing with multiple samples/libraries/batches.
+
+# Integration
+
+## What is integration and why do we need it?
+
+Cells from different samples differ for technical reasons (library prep, sequencing depth, processing day) as well as biological ones (donor, genotype, condition).
+If we ignore this, cells often cluster by sample instead of by cell type, and the same cell type from two samples ends up in separate clusters.
+This is the classic **batch effect**.
+
+Integration is not only about technical batches.
+Even when there is no obvious batch, e.g. every sample was prepared separately, or all were processed together, we usually still integrate.
+Each sample (donor, animal, condition) is its own source of variation, and we want to line up the shared cell types across samples regardless of where the variation comes from.
+Here, integration means *aligning shared cell populations across samples*, and it is not limited to removing technical noise.
+
+**Integration** removes this sample-specific variation so that cells of the same type from different samples overlap in a shared low-dimensional space.
+We then cluster and annotate on the integrated embedding, which makes the clusters comparable across samples.
+Integration is only used for embedding, clustering and visualization.
+Differential expression is still done on the original (joined) expression values, not on integrated values.
+
+**Do we always need it?** No.
+First check whether there is a problem, e.g. a UMAP coloured by sample.
+If samples already mix well, integration is not needed, and too aggressive integration can remove real biology (e.g. a cell type or condition effect present in only some samples).
+There are many integration method, each suited for different scenario.
+Sometimes we may need a harsh integration if we, for example, re-analyze public data and want to combine samples from different studies.
+Other times, our genetic knock-out or treatment may alter cell type composition and there might be a small subpopulation that is specific to one condition.
+If we out integration method is too aggressive, that rare cell population might blended with with a similar cell types and we ultimately loose that condition-specific rare cell type.
+
+### General approaches
+
+- **Anchor-based / mutual nearest neighbours:** find pairs of similar cells across datasets and use them to correct one dataset towards another (Seurat CCA / RPCA, MNN, fastMNN).
+- **Embedding correction:** leave the expression values alone and adjust the PCA coordinates so batches overlap (Harmony).
+- **Probabilistic / deep learning models:** learn a latent space that is corrected for batch (scVI, scANVI).
+- **Reference mapping:** project new samples onto an already annotated reference instead of integrating everything together.
+
+### Harmony
+
+We will use [Harmony](https://doi.org/10.1038/s41592-019-0619-0), which works on the PCA embedding.
+It repeatedly (1) clusters the cells softly, with a penalty for clusters dominated by a single sample, and (2) computes a cluster-specific linear correction per sample and moves the cells accordingly, until the cells are well mixed.
+It is fast, memory-efficient and scales to many samples.
+The output is a corrected embedding (`harmony`) that replaces PCA for neighbours, clustering and UMAP.
+This is why we keep the per-sample layers and run PCA first.
+
+```{r}
+so <- RunHarmony(so, group.by.vars = 'sample') # We need to specify our batches/or libraries
+
+# We can also run:
+# so <- IntegrateLayers( object = so, method = HarmonyIntegration) # It will use the sample specific layers
+```
+
+```{r}
+so
+```
+
+After running harmony, we get a new reduction "harmony", we will use it instead of pca to run neighbors and umap, since harmony is basically a batch corrected pca.
+
+```{r}
+so <- so |> 
+  FindNeighbors(reduction = 'harmony', dims = 1:20, verbose = F) |> 
+  RunUMAP(reduction = 'harmony', dims = 1:20, verbose=F) |> 
+  FindClusters(resolution = 0.8, algorithm = 4, cluster.name = 'leiden_0.8', verbose = F) 
+```
+
+We can now join the layers together, set default idents and dim.red.
+
+```{r}
+so <- JoinLayers(so)
+Idents(so) <- 'leiden_0.8'
+DefaultDimReduc(so) <- 'umap'
+so
+```
+
+# Additional QC's
+
+## Assessing integration
+
+```{r, fig.width=15, fig.height=8}
+p1 <- DimPlot(so, reduction = 'umap_unintegrated', group.by = c('leiden_0.8_unintegrated', 'sample', 'condition'), shuffle = T) 
+p2 <- DimPlot(so, reduction = 'umap', group.by = c('leiden_0.8', 'sample', 'condition'), shuffle = T) 
+
+p1/p2
+```
+
+```{r, fig.width=15, fig.height=8}
+DimPlot(so, reduction = 'umap', group.by = 'leiden_0.8', split.by = 'sample', ncol = 4, label = T)
+```
+
+```{r}
+plot_cluster_composition <- function(seurat_object, cluster_col = "seurat_clusters" ,sample_col = 'orig.ident'){
+  freq <- prop.table(table(seurat_object@meta.data[[cluster_col]], seurat_object@meta.data[[sample_col]]), margin = 2)  # each sample sums to 1
+  norm <- prop.table(freq, margin = 1) |> # each cluster sums to 1
+    as.data.frame() |> 
+    setNames(c("cluster", "sample", "prop"))
+  
+  ggplot(norm, aes(cluster, prop, fill = sample)) + 
+    geom_col() +
+    scale_y_continuous(labels = scales::percent, expand = c(0, 0)) + 
+    theme_void() +
+    theme(axis.text.x = element_text(), axis.title.x = element_text()) +
+    scale_fill_brewer(palette = 'Set2')
+  
+}
+```
+
+```{r}
+plot_cluster_composition(so, 'leiden_0.8')
+```
+
+::: callout-note
+## Exercise 3
+
+Did the integration help aligning samples together?
+Are there still clusters dominated by one or two samples?
+:::
+
+## Identification of poor quality cells
+
+Now it is a good time to go back to our QC metrics.
+Sometimes a cluster doesn't represent a cell type but it consist of cells of poor quality.
+Although we did prefiltering, we might have not catch all poor quality cells.
+Clustering and UMAP projection can help identify those cells, because they might now cluster together.
+
+::: callout-note
+## Exercise 4
+
+Color the UMAP (DimPlot or FeaturePlot) by different QC metrics, including mito% and cell cycle score and phase.
+Are there any clusters that are driven by any of these metrics and might not represent a cell type?
+:::
+
+```{r, fig.width=18, fig.height=5}
+DimPlot(so, group.by = 'leiden_0.8', label = T) +
+  DimPlot(so, group.by = c('sample', 'condition', 'Phase'), shuffle = T, combine = F) +
+  plot_layout(ncol=4)
+```
+
+```{r, fig.width= 18, fig.height= 5}
+FeaturePlot(so ,c('nCount_RNA', 'nFeature_RNA', 'mito.percent', 'S.Score', 'G2M.Score'), order = T, ncol = 5)
+# cluster 7 Cl020 mito%
+```
+
+We can also look at top marker genes for each cluster.
+
+A cluster is likely an artifact, not a cell type, if it shows one or more of these:
+
+- **No specific markers**.
+  Few genes are expressed in most of its cells and in few cells elsewhere (high \`pct.1\`, low \`pct.2\`).
+
+- **Markers that are ambient or low-quality genes**.
+  Examples are hemoglobin (Hbb-bs, Hba-a1), Ttr, ribosomal genes (Rps/Rpl), mitochondrial genes and Gm/Rik genes.
+
+- **Low nFeature, high mito%, or one dominating sample.** That points to damaged nuclei or ambient RNA, not biology.
+
+Some of the mentioned genes are common in the ambient RNA of every droplet, and a nucleus with little RNA of its own is dominated by that background.
+Hemoglobin usually means blood left in the tissue, since mature mouse red blood cells have no nucleus.
+
+::: callout-note
+## Exercise 4
+
+As an additional check identify cluster-specific markers and plot top 5 markers/cluster using `DotPlot` function.
+Are there any clusters that look suspicious?
+:::
+
+```{r, fig.height= 8, fig.width=20}
+markers <- FindAllMarkers(so, logfc.threshold = 1, min.pct = .3, only.pos = T)
+
+top10 <- markers %>%
+  filter(p_val_adj < 0.01) %>%
+  group_by(cluster) %>%
+  slice_max(avg_log2FC, n=5) %>%
+  pull(gene) %>%
+  unique()
+
+DotPlot(so, top10) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+```
+
+```{r}
+markers %>%
+  filter(cluster==7) %>%
+  arrange(-avg_log2FC)
+```
+
+Remove clusters 7 and 11.
+Re-run HVG, scale, pca, harmony, neighbors, clust, umap
