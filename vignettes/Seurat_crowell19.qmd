@@ -64,6 +64,7 @@ The design makes this a good example for integration and for comparing condition
 
 ```{r, warning=FALSE, message=FALSE}
 library(tidyverse)
+library(tidycomm)
 library(patchwork)
 library(Seurat)
 library(clustree)
@@ -73,6 +74,7 @@ library(ggridges)
 library(scDblFinder)
 library(BiocParallel)
 library(harmony)
+
 ```
 
 # Import data
@@ -314,6 +316,14 @@ FeatureScatter(so, "nFeature_RNA", 'mito.percent', group.by = 'mito_outlier', sp
 table(so$mito_outlier, so$sample)
 ```
 
+::: callout-note
+## Exercise 1
+
+Some of the samples have bimodal distributions.
+What do you think might be the reasons for that?
+What are potential pitfalls of using MAD outliers on bimodal distributions?
+:::
+
 ## Doublet detection
 
 A **doublet** is a droplet that captured two (or more) cells instead of one.
@@ -364,22 +374,29 @@ doublet_finder <- function(seurat_object, samples = "orig.ident", BPPARAM = NULL
 }
 ```
 
-```{r}
+```{r, eval=FALSE, }
 doublets <- doublet_finder(so, samples="orig.ident", BPPARAM = BiocParallel::MulticoreParam(workers = 4))
 so$doublet_score <- doublets$doublet_score
 so$doublet <- doublets$doublet
 ```
 
-If this is too much for your computer to handle, import [this table](https://github.com/wiktormiko/Intro-to-genomics/blob/main/vignettes/data/crowell19/crowell_metadata_doublet_calls.csv) and extract the `doublet` and `doublet_score` columns and add to your metadata.
+This might take a while to run.
+Import [this table](https://github.com/wiktormiko/Intro-to-genomics/blob/main/vignettes/data/crowell19/crowell_metadata_doublet_calls.csv) and extract the `doublet` and `doublet_score` columns and add to your metadata.
 
 `data/crowell_metadata_doublet_calls.csv`
+
+```{r}
+doublets <- read.csv("data/crowell19/crowell_metadata_doublet_calls.csv")
+so$doublet_score <- doublets$doublet_score
+so$doublet <- doublets$doublet
+```
 
 ```{r}
 table(so$doublet, so$sample)
 ```
 
 ::: callout-note
-## Exercise 1
+## Exercise 2
 
 > Are the numbers of doublets detected in each sample to be expected or are there any abnormalities?
 > For each sample plot a relation of nFeature to nCount and color by doublet identity.
@@ -414,7 +431,7 @@ p1 + p2
 ```
 
 ::: callout-note
-## Exercise 2
+## Exercise 3
 
 Do you think the thresholds that we applied make sense?
 Why?
@@ -461,25 +478,15 @@ hs2mm <- function(g) unique(orthologs(g, "mouse", human = TRUE)$symbol)
 
 s.genes   <- intersect(hs2mm(cc.genes.updated.2019$s.genes),   rownames(so))
 g2m.genes <- intersect(hs2mm(cc.genes.updated.2019$g2m.genes), rownames(so))
-
-c(S = length(s.genes), G2M = length(g2m.genes))   # human input: 43 and 54, from memory
-
-so <- CellCycleScoring(so, s.features = s.genes, g2m.features = g2m.genes)
-table(so$Phase, so$orig.ident)
 ```
 
-```{r}
-s.genes <- convertHumanGeneList(cc.genes.updated.2019$s.genes)
-g2m.genes <- convertHumanGeneList(cc.genes.updated.2019$g2m.genes)
-```
-
-```{r}
+```{r, warning=FALSE}
 so <- so |>
-  NormalizeData() |> 
-  CellCycleScoring(pbmc, s.features = s.genes, g2m.features = g2m.genes) |> 
-  FindVariableFeatures() |> 
-  ScaleData() |> 
-  RunPCA()
+  NormalizeData(verbose = F) |> 
+  CellCycleScoring(s.features = s.genes, g2m.features = g2m.genes, verbose = F) |> 
+  FindVariableFeatures(verbose = F) |> 
+  ScaleData(verbose = F) |> 
+  RunPCA(verbose = F)
 ```
 
 ```{r}
@@ -518,7 +525,7 @@ This is the classic **batch effect**.
 Integration is not only about technical batches.
 Even when there is no obvious batch, e.g. every sample was prepared separately, or all were processed together, we usually still integrate.
 Each sample (donor, animal, condition) is its own source of variation, and we want to line up the shared cell types across samples regardless of where the variation comes from.
-Here, integration means *aligning shared cell populations across samples*, and it is not limited to removing technical noise.
+Here, integration means aligning shared cell populations across samples, and it is not limited to removing technical noise.
 
 **Integration** removes this sample-specific variation so that cells of the same type from different samples overlap in a shared low-dimensional space.
 We then cluster and annotate on the integrated embedding, which makes the clusters comparable across samples.
@@ -577,8 +584,6 @@ DefaultDimReduc(so) <- 'umap'
 so
 ```
 
-# Additional QC's
-
 ## Assessing integration
 
 ```{r, fig.width=15, fig.height=8}
@@ -591,6 +596,8 @@ p1/p2
 ```{r, fig.width=15, fig.height=8}
 DimPlot(so, reduction = 'umap', group.by = 'leiden_0.8', split.by = 'sample', ncol = 4, label = T)
 ```
+
+Let's plot relative contribution of each sample to clusters.
 
 ```{r}
 plot_cluster_composition <- function(seurat_object, cluster_col = "seurat_clusters" ,sample_col = 'orig.ident'){
@@ -614,11 +621,13 @@ plot_cluster_composition(so, 'leiden_0.8')
 ```
 
 ::: callout-note
-## Exercise 3
+## Exercise 4
 
 Did the integration help aligning samples together?
 Are there still clusters dominated by one or two samples?
 :::
+
+# Additional QC's
 
 ## Identification of poor quality cells
 
@@ -628,21 +637,14 @@ Although we did prefiltering, we might have not catch all poor quality cells.
 Clustering and UMAP projection can help identify those cells, because they might now cluster together.
 
 ::: callout-note
-## Exercise 4
+## Exercise 5
 
 Color the UMAP (DimPlot or FeaturePlot) by different QC metrics, including mito% and cell cycle score and phase.
 Are there any clusters that are driven by any of these metrics and might not represent a cell type?
 :::
 
-```{r, fig.width=18, fig.height=5}
-DimPlot(so, group.by = 'leiden_0.8', label = T) +
-  DimPlot(so, group.by = c('sample', 'condition', 'Phase'), shuffle = T, combine = F) +
-  plot_layout(ncol=4)
-```
+```{r}
 
-```{r, fig.width= 18, fig.height= 5}
-FeaturePlot(so ,c('nCount_RNA', 'nFeature_RNA', 'mito.percent', 'S.Score', 'G2M.Score'), order = T, ncol = 5)
-# cluster 7 Cl020 mito%
 ```
 
 We can also look at top marker genes for each cluster.
@@ -653,7 +655,7 @@ A cluster is likely an artifact, not a cell type, if it shows one or more of the
   Few genes are expressed in most of its cells and in few cells elsewhere (high \`pct.1\`, low \`pct.2\`).
 
 - **Markers that are ambient or low-quality genes**.
-  Examples are hemoglobin (Hbb-bs, Hba-a1), Ttr, ribosomal genes (Rps/Rpl), mitochondrial genes and Gm/Rik genes.
+  Examples are hemoglobin (Hbb-bs, Hba-a1), Ttr, ribosomal genes (Rps/Rpl), mitochondrial genes and Gm/Rik genes (unless we expect to have blood cells).
 
 - **Low nFeature, high mito%, or one dominating sample.** That points to damaged nuclei or ambient RNA, not biology.
 
@@ -661,12 +663,20 @@ Some of the mentioned genes are common in the ambient RNA of every droplet, and 
 Hemoglobin usually means blood left in the tissue, since mature mouse red blood cells have no nucleus.
 
 ::: callout-note
-## Exercise 4
+## Exercise 6
 
-As an additional check identify cluster-specific markers and plot top 5 markers/cluster using `DotPlot` function.
-Are there any clusters that look suspicious?
+1.  As an additional check, identify cluster-specific markers and plot top 5 markers/cluster using `DotPlot` function.
+2.  Are there any clusters that look suspicious, i.e. don't express any markers, or express the low-quality genes?
+3.  What samples contribute to those clusters?
+4.  Once you have identified these clusters, remove them.
 :::
 
+```{r, eval=FALSE}
+so <- subset(so, !(leiden_0.8 %in% c( , ))) # remove cells that are not in clusters _ _
+unique(so$leiden_0.8) # double check
+```
+
+::: {.callout-tip collapse="true" title="Show answer" appearance="minimal"}
 ```{r, fig.height= 8, fig.width=20}
 markers <- FindAllMarkers(so, logfc.threshold = 1, min.pct = .3, only.pos = T)
 
@@ -685,7 +695,401 @@ DotPlot(so, top10) +
 markers %>%
   filter(cluster==7) %>%
   arrange(-avg_log2FC)
+
+markers %>%
+  filter(cluster==11) %>%
+  arrange(-avg_log2FC)
 ```
 
 Remove clusters 7 and 11.
-Re-run HVG, scale, pca, harmony, neighbors, clust, umap
+
+```{r}
+ so <- subset(so, !(leiden_0.8 %in% c(7, 11)))
+```
+:::
+
+HVG selection, scaling, PCA, neighbors, clusters and UMAP are all calculated from the cells that were in the object at the time.
+Removing cells (outliers, doublets, low-quality clusters) does not update any of them, so the results still carry the influence of the cells we removed:
+
+- **Scaling:** the mean and variance of each gene were computed with the removed cells included.
+- **HVGs:** genes that were variable only because of the removed cells (e.g. doublet or dying-cell signatures) can remain in the list, and genes that matter for the remaining cells can be missed.
+- **PCA, Harmony ,neighbors, clusters, UMAP:** these were built on a graph and embedding that included the removed cells. The principal components partly reflect variation that no longer exists, and clusters can be split or merged because of them.
+
+Normalization works on each cell independently, so technically we don't have to run it again.
+Some normalization methods like SCT rely on cell composition so they need to be re-run.
+We'll run `NormalizeData` again to keep our pipeline cohesive.
+
+```{r}
+# Remove the old cluster columns to keep everything clean
+so$leiden_0.8_unintegrated <- NULL
+so$leiden_0.8 <- NULL
+# Remove umap_unintegrated to keep everything clean 
+so[["umap_unintegrated"]] <- NULL
+```
+
+```{r}
+# Split layers again
+so[["RNA"]] <- split(so[["RNA"]], f = so$sample)
+so <- so |> 
+  NormalizeData(verbose = F) |> 
+  FindVariableFeatures(verbose = F) |> 
+  ScaleData(verbose = F) |> 
+  RunPCA(verbose = F) |> 
+  RunHarmony(group.by.vars = 'sample', verbose = F) |> 
+  FindNeighbors(reduction = 'harmony', dims = 1:20, verbose = F) |> 
+  RunUMAP(reduction = 'harmony', dims = 1:20, verbose = F) |> 
+  FindClusters(resolution = 0.8, algorithm = 4, cluster.name = 'leiden_0.8') |> 
+  JoinLayers()
+```
+
+::: callout-note
+## Exercise 7
+
+Subsetting and reclustering might sometimes reveal additional populations of low quality cells.
+Check if any of the new clusters raise concerns.
+:::
+
+# Clustering
+
+Once you feel like all artifacts have been removed, proceed with clustering.
+So far we've only tried a single clustering resolution, because we were still curating our final data set.
+By now you know the drill, we should try multiple resolutions and asses which one results in optimal clusters, i.e. not under or massively overclustered.
+
+::: callout-note
+## Exercise 8
+
+Run multiple clustering resolutions and evaluate which one is optimal (Check the pbmc vignette if you don't remember the steps)
+:::
+
+```{r, eval=FALSE}
+Idents(so) <- "your chosen cluster column"
+```
+
+# Cell type annotation
+
+## Manual cluster annotation
+
+::: callout-note
+## Exercise 9
+
+Using cluster-specific marker genes and canonical markers, annotate the clusters.
+Keep in mind that this is a mouse brain dataset.
+Based on the experimental setup, assess what cell types you should expect to see.
+That is going to give you a starting point to look up the genes.
+You don't have to be super precise, focus on the main cell types/classes.
+Annotation is also an iterative process.
+:::
+
+```{r, eval=FALSE}
+for (i in levels(Idents(so))){
+  cat("`",i,"`", " = '', \n")
+}
+```
+
+```{r, eval=FALSE}
+labels <- c(
+# copy the output above
+)
+
+so <- RenameIdents(so, labels)
+so$celltype_manual <- Idents(so)   # save it, since Idents are easily overwritten
+```
+
+::: {.callout-note collapse="true" title="example" appearance="minimal"}
+```{r}
+labels <- c(
+  `1`  = 'Exc_L2/3_IT',
+  `2`  = 'Exc_L6_CT',
+  `3`  = 'Exc_unresolved',
+  `4`  = 'Astrocytes',
+  `5`  = 'Oligodendrocytes',
+  `6`  = 'Exc_L4',
+  `7`  = 'Exc_unresolved_2',
+  `8`  = 'Exc_L5',
+  `9`  = 'Inh_PV',
+  `10` = 'Inh_VIP',
+  `11` = 'Exc_hippocampal-like',
+  `12` = 'Inh_SST',
+  `13` = 'Exc_Tshz2',
+  `14` = 'OPC',
+  `15` = 'Inh_unresolved',
+  `16` = 'Exc_L5_NP-like',
+  `17` = 'Endothelial',
+  `18` = 'Microglia',
+  `19` = 'Fibroblast-like',
+  `20` = 'Striatal_MSN',
+  `21` = 'Exc_L6b',
+  `22` = 'Exc_Tshz2_LC016',
+  `23` = 'ChP_Ependymal'
+)
+
+so <- RenameIdents(so, labels)
+so$celltype_manual <- Idents(so)   # save it, since Idents are easily overwritten
+```
+:::
+
+## Reference based annotation
+
+Instead of labelling clusters by hand from marker genes, we can transfer labels from an **annotated reference dataset**.
+The reference can be a curated bulk or single-cell atlas of the same tissue and species.
+Each cell in our data (or each cluster) is compared to the reference and gets the label of the most similar reference cells.
+
+Common approaches:
+
+- **Correlation-based (e.g. `SingleR`):** compares each cell's expression to reference profiles and assigns the best-matching label. It is quick and easy, with ready-made references in `celldex` (e.g. `MouseRNAseqData`, `ImmGenData`), but you can supply any annotated single-cell dataset.
+- **Anchor-based label transfer (Seurat `FindTransferAnchors()` + `TransferData()`):** finds matching cells between our data and an annotated Seurat reference and transfers the labels, with a prediction score for each cell.
+- **Pre-trained / web tools (e.g. Azimuth, MapMyCells):** map cells onto a published atlas.
+
+Things to keep in mind:
+
+- The result is only as good as the reference. It must match the species, tissue and technology, and it can only assign labels that exist in the reference. A cell type missing from the reference will be forced into the closest label.
+- Check the confidence scores and drop or flag low-confidence cells instead of trusting every label. Most of the algorithms will enforce a label, instead of saying "I don't know".
+- Treat the labels as a starting point. Confirm them with marker genes (e.g. dot plot or violin plots) and our clusters.
+
+### Web-based tools
+
+[MapMyCells](https://brain-map.org/bkp/analyze/mapmycells#taxonomies) allows users to assign cell type names from Allen Institute-hosted taxonomies to their own single cell and spatial transcriptomics data.
+It.
+is an online tool with several available references, focusing on both human and mouse brain tissues, so it suits well for our dataset.
+It is not possible to use a custom reference, so you can't use it for anything other than brain.
+There are other web-based tools though.
+
+We need to supply a raw count matrix where rows are cells and columns are genes (csv or anndata; up to 2GB).
+
+First, we have to convert the seurat object into h5ad (or csv)
+
+```{r}
+# BiocManager::install('anndataR')
+library(anndataR)
+
+# custom function that takes in seurat obj and strips it from everything that is not raw counts
+write_simple_h5ad <- function(seurat_object, path){
+  counts <- LayerData(seurat_object, assay = "RNA", layer = "counts")  
+  seurat_object_min <- CreateSeuratObject(counts = counts, assay = "RNA") 
+  write_h5ad(seurat_object_min, path, x_mapping = 'counts', layers_mapping=FALSE, compression = 'gzip')
+}
+
+write_simple_h5ad(so, 'crowell.h5ad')
+```
+
+Supply this file to [MapMyCells](https://knowledge.brain-map.org/mapmycells/process?refTaxonomyId=10xGene) choosing 10x Whole mouse brain as reference
+
+```{r}
+file <- "data/crowell19/crowell_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1792284248846.csv"
+map <- read.csv(file, comment.char = "#")
+colnames(map)
+idx <- match(colnames(so), map$cell_id)
+
+```
+
+Let's check the results and see whether they are trustworthy.
+
+1.  Add all 4 levels of annotation
+
+```{r}
+for (lv in c("class", "subclass", "supertype", "cluster")) {
+  so[[paste0("mmc_", lv)]]         <- map[[paste0(lv, "_name")]][idx]
+  so[[paste0("mmc_", lv, "_prob")]] <- map[[paste0(lv, "_bootstrapping_probability")]][idx]
+}
+stopifnot(!anyNA(idx))                                   # every cell mapped
+md <- as_tibble(so@meta.data, rownames='cell') |> dplyr::mutate(cluster = as.character(leiden_0.8))
+```
+
+2.  Is the mapping trustworthy
+
+```{r, fig.height=6, fig.width=12}
+sort(table(so$mmc_class), decreasing = TRUE)          
+tapply(so$mmc_subclass_prob, so$leiden_0.8, median)      # confidence by cluster
+VlnPlot(so, c("mmc_class_prob", "mmc_subclass_prob", "mmc_supertype_prob"), group.by = "leiden_0.8", pt.size = 0)
+FeaturePlot(so, "mmc_subclass_prob") + coord_equal()                  # are low-confidence cells at borders/bridges?
+```
+
+Most cells are confident and fall into the expected classes.
+Most labels are localized in clusters, they are not spread-out across multiple clusters.
+
+3.  Summarize per cluster. We'll take most common label in each cluster.
+
+```{r, fig.width=15, fig.height=8}
+cluster_labels <- so@meta.data |>
+  dplyr::count(cluster = as.character(leiden_0.8), label = mmc_subclass) |>
+  dplyr::group_by(cluster) |>
+  dplyr::mutate(frac = n / sum(n)) |>              # share of the cluster with this label
+  dplyr::slice_max(n, n = 1, with_ties = FALSE) |>
+  dplyr::ungroup()
+
+so$celltype_mmc <- cluster_labels$label[match(as.character(so$leiden_0.8), cluster_labels$cluster)]
+
+cluster_labels
+DimPlot(so, group.by = "celltype_mmc", label = TRUE, repel = TRUE)
+DimPlot(so, group.by = 'celltype_manual', label=TRUE, repel=TRUE)
+table(so$celltype_manual, so$celltype_mmc)    # compare with manual labels
+```
+
+I used the clustering resolution 0.8, but you should use the resolution that you have identified to be optimal (Exercise 9).
+From my experience the mapping tends to be better, if the cells are slightly overclustered.
+As an exercise you can try mapping on different resolutions.
+
+### Label transfer
+
+Label transfer uses an annotated reference Seuratobject.
+It finds pairs of cells that are mutual nearest neighbors between the two datasets (the anchors), then uses those anchors to predict a label for every query cell.
+
+Main steps:
+
+1.  **Prepare the reference.** It should be normalized, have variable features and PCA computed, and contain a metadata column with the cell type labels.
+2.  **Find anchors.** `FindTransferAnchors()` compares the query to the reference in the shared PCA space, using the genes both datasets have.
+3.  **Transfer the labels.** `TransferData()` predicts a label for each query cell from its anchors, and returns a **prediction score** (0 to 1) as a measure of confidence.
+4.  **Add the result to the query.** `AddMetaData()` stores the predicted labels and scores in the metadata.
+5.  **Check the result.** Look at the score distribution, flag or drop low-confidence cells, and compare the labels with our clusters and marker genes.
+
+We will use ZeiselBrainData
+
+1.  Build the reference
+
+```{r, warning=FALSE, message=FALSE}
+# BiocManager::install('scRNAseq')
+library(scRNAseq)
+
+zei <- ZeiselBrainData()
+head(colData(zei))
+ref <- CreateSeuratObject(counts = counts(zei),
+                          meta.data = as.data.frame(colData(zei))[, c("level1class", "level2class")])
+ref <- ref |> 
+  subset(level2class != '(none)') |> 
+  NormalizeData(verbose = F) |> 
+  FindVariableFeatures(verbose = F) |> 
+  ScaleData(verbose = F) |> 
+  RunPCA(npcs = 30)
+table(ref$level1class)
+```
+
+2.  Transfer labels
+
+```{r}
+anchors <- FindTransferAnchors(reference = ref, query = so, dims = 1:30, reference.reduction = "pca")
+
+pred1 <- TransferData(anchorset = anchors, refdata = ref$level1class, dims = 1:30)
+pred2 <- TransferData(anchorset = anchors, refdata = ref$level2class, dims = 1:30)
+
+so$tf_level1 <- pred1$predicted.id
+so$tf_level1_score <- pred1$prediction.score.max
+so$tf_level2 <- pred2$predicted.id
+so$tf_level2_score <- pred2$prediction.score.max
+```
+
+```{r, fig.width=10, fig.height=5}
+VlnPlot(so, c('tf_level1_score',"tf_level2_score"), group.by = "leiden_0.8", pt.size = 0)
+```
+
+```{r, fig.width=10, fig.height=10}
+DimPlot(so, group.by = c('tf_level1',"tf_level2"), label = TRUE, repel = TRUE, shuffle = T, ncol = 1) 
+```
+
+Most cell labels are aggregated around clusters which is a good sign.
+
+It could be difficult to make sense of the annotations if most clusters where mixture of cell types.
+That could mean that our cluster might not represent cell types (we know they do in this case), the reference cell types are so similar to each other that our dataset is underpowered to tell apart (sequencing depth etc.), or that the reference dataset is not well suited for our dataset.
+
+Similarly to MMC, we will take the most common label for each cluster as a cluster annotation.
+
+```{r}
+most_common_label <- function(seurat_obj, anno_col, cluster_col, prefix = anno_col){
+  df <- seurat_obj@meta.data %>%
+    dplyr::mutate(cluster = .data[[cluster_col]],
+                  cell_anno = .data[[anno_col]]) %>%
+    dplyr::count(cluster = as.character(cluster), label = cell_anno) |>
+    dplyr::group_by(cluster) |>
+    dplyr::mutate(frac = n / sum(n)) |>              # share of the cluster with this label
+    dplyr::slice_max(n, n = 3, with_ties = FALSE) |>
+    summarise(top1      = label[1],
+              top2      = label[2],
+              top3      = label[3],# NA if the cluster has only one label
+              frac_top1 = frac[1],
+              frac_top2 = frac[2],
+              frac_top3 = frac[3],
+              .groups = "drop") %>%
+    mutate(cluster = as.integer(cluster)) %>%
+    arrange(cluster)
+  return(df)
+  
+}
+```
+
+This table shows top3 most common labels and proportion of cells in a cluster with that label.
+Some more ambiguous annotations should be investigated.
+I'm going to choose the first label for the sake of the tutorial.
+
+```{r}
+top_lab_df_l1 <- most_common_label(so, 'tf_level1', 'leiden_0.8')
+top_lab_df_l2 <- most_common_label(so, 'tf_level2', 'leiden_0.8')
+top_lab_df_l1
+top_lab_df_l2
+```
+
+```{r}
+so$cell_ann_tf1 <- top_lab_df_l1$top1[match(as.character(so$leiden_0.8), top_lab_df_l1$cluster)]
+so$cell_ann_tf2 <- top_lab_df_l2$top1[match(as.character(so$leiden_0.8), top_lab_df_l2$cluster)]
+```
+
+```{r, fig.height=20, fig.width=10}
+DimPlot(so, group.by = c('leiden_0.8','celltype_manual','celltype_mmc','cell_ann_tf1', 'cell_ann_tf2'), label = T, repel = T, ncol = 1) 
+```
+
+```{r}
+so[[]] %>%
+  dplyr::select(leiden_0.8, celltype_manual, celltype_mmc, cell_ann_tf1, cell_ann_tf2) %>%
+  distinct()
+```
+
+## Consensus
+
+You have tried multiple methods of annotation.
+It seems like a lot, but in real life we often use multiple approaches to get the most reliable annotation.
+This is one of the most important steps in the whole analysis because it will dictate the results and interpretation of most downstream analyses.
+
+::: callout-note
+## Exercise 10
+
+Now it is time to compare all methods.
+Often times different atlases use different nomenclatures for the same cell type.
+Some annotations are more general, some are more granular.
+Create two new ultimate/consensus annotations.
+One that is more general (main cell types/classes), e.g. interneurons, and a second one that is more granular, e.g specific type of interneurons.
+It will not always be possible to get a consensus on the more granular annotations.
+In that, case stick to the general one.
+
+We are not neurobiology experts and know every single subttype of brain tissue.
+We often consult our annotation results with researchers actively working in the field.
+You can use AI to help with the labels based on the your results.
+MMC reference might be a bit more accurate and reliable for this dataset.
+:::
+
+::: {.callout-note collapse="true" title="Example annotation" appearance="minimal"}
+| Cluster | General | Granular | Confidence |
+|------------------|------------------|------------------|------------------|
+| 1 | Excitatory neurons | Upper-layer excitatory | high |
+| 2 | Excitatory neurons | Layer 6 excitatory (to thalamus) | high |
+| 3 | Excitatory neurons | Mid-layer excitatory | medium |
+| 4 | Astrocytes | Astrocytes | high |
+| 5 | Oligodendrocytes | Oligodendrocytes | high |
+| 6 | Excitatory neurons | Mid-layer excitatory | high |
+| 7 | Excitatory neurons | Layer 6 excitatory (cortico-cortical) | medium |
+| 8 | Excitatory neurons | Layer 5 excitatory (long-range) | high |
+| 9 | Inhibitory neurons | Inhibitory (PV) | high |
+| 10 | Inhibitory neurons | Inhibitory (VIP/Lamp5) | medium |
+| 11 | Excitatory neurons | Hippocampal excitatory (CA1) | medium |
+| 12 | Inhibitory neurons | Inhibitory (SST) | high |
+| 13 | Excitatory neurons | Upper-layer excitatory (retrosplenial-like) | low |
+| 14 | OPCs | OPCs | high |
+| 15 | Inhibitory neurons | Inhibitory, unresolved | low |
+| 16 | Excitatory neurons | Layer 5 excitatory (near-projecting) | high |
+| 17 | Endothelial cells | Endothelial cells | high |
+| 18 | Microglia | Microglia | high |
+| 19 | Fibroblast-like cells | Fibroblast-like (meninges) | high |
+| 20 | Inhibitory neurons | Striatal neurons (off-target) | high |
+| 21 | Excitatory neurons | Layer 6b excitatory | high |
+| 22 | Excitatory neurons | Mid-layer excitatory (cingulate-like) | low |
+| 23 | Choroid plexus cells | Choroid plexus | high |
+
+**Confidence:** *high* = methods agree at the granular level, or the only disagreement is because the Zeisel reference lacks the type; *medium* = the cluster mixes sub-types or only some methods support the granular name; *low* = methods disagree, or the cluster is unresolved or mostly one mouse.
+:::
