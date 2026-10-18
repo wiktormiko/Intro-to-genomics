@@ -3,11 +3,29 @@ title: "Intro to genomics"
 subtitle: "Tutorials and vignettes for getting started with genomics data analysis in R"
 page-layout: full
 listing:
-  contents:
-    - "vignettes/*.Rmd"
-    - "vignettes/*.qmd"
-  type: grid
-  grid-columns: 2
-  fields: [title, description]
-  sort: "title"
+  - id: differential-expression
+    contents:
+      - vignettes/DESeq2_workflow.Rmd
+    type: grid
+    grid-columns: 2
+    fields: [title, description]
+    sort: false
+  - id: single-cell
+    contents:
+      - vignettes/Seurat_pbmc.qmd
+      - vignettes/Seurat_crowell19.qmd
+    type: grid
+    grid-columns: 2
+    fields: [title, description]
+    sort: false
 ---
+
+## Differential expression
+
+::: {#differential-expression}
+:::
+
+## Single-cell
+
+::: {#single-cell}
+:::
