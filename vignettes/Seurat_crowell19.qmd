@@ -1,6 +1,6 @@
 ---
 title: "Seurat workflow: Integration"
-description: "Single-cell RNA-seq analysis with Seura Part II: Integration of Ifnb."
+description: "Single-cell RNA-seq analysis Part II: Doublet detection,integration, pseudobulk"
 author: "Wiktor Mikolajczak"
 editor: visual
 ---
@@ -858,7 +858,7 @@ We need to supply a raw count matrix where rows are cells and columns are genes 
 
 First, we have to convert the seurat object into h5ad (or csv)
 
-```{r}
+```{r, eval=FALSE}
 # BiocManager::install('anndataR')
 library(anndataR)
 
