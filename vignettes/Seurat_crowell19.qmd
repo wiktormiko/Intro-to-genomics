@@ -1274,7 +1274,7 @@ You can use lapply to convert the results to df, and apply your custom function 
 ### Exercise 13
 
 For each contrast, plot the distribution of nominal p-values.
-In your opinion, the tests ran correctly?
+In your opinion, did the tests ran correctly?
 :::
 
 ```{r, eval=FALSE}
