@@ -4,7 +4,6 @@ project:
     - index.qmd
     - "vignettes/*.Rmd"
     - "vignettes/*.qmd"
-    - "!vignettes/Seurat_crowell19.qmd"   # work in progress: no frozen output yet, CI can't run R
 
 execute:
   freeze: true   # outputs are computed locally and committed in _freeze/; CI never runs R
@@ -24,6 +23,7 @@ website:
       - section: "Single-cell"
         contents:
           - vignettes/Seurat_pbmc.qmd
+          - vignettes/Seurat_crowell19.qmd
   page-footer: "Intro to genomics"
 
 format:
