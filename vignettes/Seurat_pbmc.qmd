@@ -18,7 +18,7 @@ knitr::opts_chunk$set(
 
 Introduction to Seurat workflow
 
-This vignette is based on [Seurat - Guided clustering tutorial](https://satijalab.org/seurat/articles/pbmc3k_tutorial)
+This vignette is based on [Seurat - Guided clustering tutorial](https://satijalab.org/seurat/articles/pbmc3k_tutorial).
 
 Use this vignette as a general guideline, not a ground truth.
 There is no one way to analyze genomics data.
@@ -39,18 +39,18 @@ It is vital that, before any analysis, you familiarize yourself with the data se
 Instead of just copy-pasting the code, try implementing the following logic:
 
 1.  Read the vignette first. Try to understand each step.
-2.  Without looking at the vignette, write down the main steps of the workflow (use headers to build an outline of your document at the same time). For each step, write a short comment: What is this step for?, Why is it important? Compare your answers with the vignette. It is ok if you don't remember the exact code or the name of the functions. It's more important that you understand each step conceptually.
+2.  Without looking at the vignette, write down the main steps of the workflow (use headers to build an outline of your document at the same time). For each step, write a short comment: What is this step for? Why is it important? Compare your answers with the vignette. It is OK if you don't remember the exact code or the name of the functions. It's more important that you understand each step conceptually.
 3.  After each step write down your observations. What has changed?
-4.  At the end of your analysis, think about and write down conclusions. It doesn't have to be an academic assay but try to state the main points and do a little bit of goggling.
+4.  At the end of your analysis, think about and write down conclusions. It doesn't have to be an academic essay but try to state the main points and do a little bit of googling.
     - Are you able to answer the initial research question and confirm/deny the hypotheses?
     - Try to connect what is known with what you have found.
 
 The goal of this training is to help you understand the general workflow of single-cell RNA-seq analysis.
 Although using AI can be beneficial and speed up your analysis, it is important that you have a good understanding of topics covered in this training and you have truly mastered the skill.
 Only then you can use AI to help you with the analysis.
-It is fine, to ask AI to help you with customizing a ggplot, but try not to use it for the actual analysis.
+It is fine to ask AI to help you with customizing a ggplot, but try not to use it for the actual analysis.
 
-If you don't know what a function does, run `?function_name` in Console.
+If you don't know what a function does, run `?function_name` in the Console.
 
 # About the dataset
 
@@ -65,7 +65,7 @@ The data were processed with cellranger and aligned to the human reference genom
 Because there is only one sample, there are no treatment groups or batches to compare.
 Our goal is to identify the cell types present in the sample, based on clustering and marker gene expression.
 
-The data can be also found on [my github](https://github.com/wiktormiko/Intro-to-genomics/tree/main/vignettes/data/pbmc/filtered_gene_bc_matrices/hg19)
+The data can also be found on [my GitHub](https://github.com/wiktormiko/Intro-to-genomics/tree/main/vignettes/data/pbmc/filtered_gene_bc_matrices/hg19).
 
 ## Structure of the cellranger output
 
@@ -76,7 +76,7 @@ Together they describe one count matrix, split into the matrix itself and the la
   Each barcode is a short DNA sequence that tags all reads from one droplet, so it identifies one cell.
   The suffix `-1` is the GEM well (sample) number.
   These are the **columns** of the matrix (2,700 lines here).
-  Only barcodes that cellranger called as cells are included, empty droplets are removed ("filtered" matrix).
+  Only barcodes that cellranger called as cells are included; empty droplets are removed ("filtered" matrix).
 
 - `genes.tsv`: one gene per line, with two tab-separated columns: the Ensembl gene ID (e.g. `ENSG00000243485`) and the gene symbol (e.g. `MIR1302-10`).
   These are the **rows** of the matrix, one for every gene in the reference annotation (32,738 for hg19), whether or not it was detected.
@@ -107,11 +107,11 @@ This lets us find cell types and states that would be hidden in the average, for
 
 The data look different too, and this affects the analysis:
 
-- **Size:** a bulk experiment has a handful of samples (columns), a single-cell experiment has thousands of cells.
+- **Size:** a bulk experiment has a handful of samples (columns); a single-cell experiment has thousands of cells.
 - **Sparsity:** each cell contains very little RNA (a few pg) and only a fraction of it is captured, so most entries in the matrix are zero. Some zeros are true absence of expression, others are "dropouts" where a molecule was missed. Bulk data have far fewer zeros.
 - **Counts:** in bulk RNA-seq, reads are usually counted directly (full-length protocols, no UMIs). Because single-cell protocols need a lot of PCR amplification from tiny amounts of RNA, UMIs are used to remove amplification bias.
 - **Noise:** gene expression is noisy at the single-cell level (both biological and technical), so we need cell-level quality control (e.g. number of genes, mitochondrial content) and dimensionality reduction before clustering.
-- **Question:** bulk RNA-seq compares conditions (differential expression between samples), single-cell RNA-seq is often used (but not only) to discover and annotate cell populations.
+- **Question:** bulk RNA-seq compares conditions (differential expression between samples); single-cell RNA-seq is often used (but not only) to discover and annotate cell populations.
 
 [**How does single cell RNA-seq work**](https://www.10xgenomics.com/blog/how-does-single-cell-rna-seq-work)
 
@@ -156,7 +156,7 @@ library(clustree)
 ## Set up Seurat object
 
 We start by reading in the data.
-The [`Read10X()`](https://satijalab.org/seurat/reference/read10x) function reads in the output of the [cellranger](https://www.10xgenomics.com/support/software/cell-ranger/latest/getting-started/cr-what-is-cell-ranger) pipeline from 10X, returning a unique molecular identified (UMI) count matrix.
+The [`Read10X()`](https://satijalab.org/seurat/reference/read10x) function reads in the output of the [cellranger](https://www.10xgenomics.com/support/software/cell-ranger/latest/getting-started/cr-what-is-cell-ranger) pipeline from 10X, returning a unique molecular identifier (UMI) count matrix.
 The values in this matrix represent the number of molecules for each feature (i.e. gene; row) that are detected in each cell (column).
 
 ```{r}
@@ -244,8 +244,8 @@ Seurat adds a few columns automatically:
 - `nCount_RNA`: the number of UMIs in the cell.
 - `nFeature_RNA`: the number of genes detected in the cell.
 
-The concept of `meta.data` in single-cell is the same as in bulk RNA-seq and DESeq2 workflow.
-Instead of biological samples, the row represents cells/barcodes.
+The concept of `meta.data` in single-cell is the same as in bulk RNA-seq and the DESeq2 workflow.
+Instead of biological samples, the rows represent cells/barcodes.
 
 ```{r}
 head(pbmc@meta.data)
@@ -292,7 +292,7 @@ As we run the workflow, come back to the object and check what has changed.
 
 ## QC and selecting cells for further analysis
 
-Similarly to the DESeq2 workflow - where we also did some QC's, e.g. remove low-count genes - we will do something similar.
+Similarly to the DESeq2 workflow - where we also did some QCs, e.g. remove low-count genes - we will do something similar.
 Instead of filtering "low quality genes", we will remove "low quality **cells**".
 Low-quality cells (dying or damaged cells, empty droplets, doublets) have unreliable or misleading expression profiles, so if you leave them in, they add noise, form artificial clusters, and distort normalization and downstream results like clustering and differential expression.
 
@@ -314,7 +314,7 @@ Here are some of the [commonly used metrics for QC checks](https://pmc.ncbi.nlm.
 
   - We use the set of all genes starting with `MT-` as a set of mitochondrial genes (`mt-` in mouse)
 
-The number of unique genes (**`nFeature_RNA`**) in each cell and total number of UMI (**`nCount_RNA`**) in each cell are already present in the meta.data
+The number of unique genes (**`nFeature_RNA`**) in each cell and total number of UMIs (**`nCount_RNA`**) in each cell are already present in the meta.data.
 
 ```{r}
 head(pbmc[[]])
@@ -333,7 +333,7 @@ head(pbmc[[]])
 
 There is now a new column in metadata, describing a percentage of mitochondrial genes in each cell.
 
-Visualizing these metrics will help us determine, what thresholds to use for filtering.
+Visualizing these metrics will help us determine what thresholds to use for filtering.
 Seurat has plenty of built-in plotting functions.
 
 ```{r, warning=FALSE}
@@ -379,7 +379,7 @@ ngenes_hi <- 2000
 mito_lo <- 5
 ```
 
-Before we remove any cells, let's add a new column to the metadata that says which cells have passed the filtering criteria
+Before we remove any cells, let's add a new column to the metadata that says which cells have passed the filtering criteria.
 
 ```{r}
 pbmc$QC_pass <- pbmc$nCount_RNA > umi_lo & pbmc$nCount_RNA < umi_hi &
@@ -394,7 +394,7 @@ Let's see how many cells would be removed.
 table(pbmc$QC_pass)
 ```
 
-I am going to write my own ggplot because I want more flexibility
+I am going to write my own ggplot because I want more flexibility.
 
 ```{r, fig.height=6, fig.width=10}
 qc_colors <- c("TRUE" = "grey70", "FALSE" = "red")
@@ -424,7 +424,7 @@ p3 <- FeatureScatter(pbmc, feature1 = "nCount_RNA", feature2 = "nFeature_RNA", g
 ```
 
 Once we are satisfied with our cutoffs, we can remove these low-quality cells.
-Remember that single-cell analysis is an iterative process and often times you need to go back to previous steps and adjust some parameters.
+Remember that single-cell analysis is an iterative process and oftentimes you need to go back to previous steps and adjust some parameters.
 
 ```{r}
 pbmc
@@ -435,14 +435,14 @@ pbmc <- subset(pbmc, subset = QC_pass) # keeps cells where QC_pass == TRUE
 # This is equivalent to: pbmc <- subset(pbmc, subset = QC_pass==TRUE)
 ```
 
-Always double check that what you removed worked properly
+Always double check that what you removed worked properly.
 
 ```{r}
 pbmc
 table(pbmc$QC_pass)
 ```
 
-We successfully removed low quality cells (104) and we are left with 2596 cells.
+We successfully removed low-quality cells (104) and we are left with 2596 cells.
 
 ## Data normalization
 
@@ -495,7 +495,7 @@ Selecting HVGs for downstream analysis (PCA, clustering) has several advantages:
 - It makes the computation faster.
 
 Seurat's `FindVariableFeatures()` uses the `vst` method by default.
-You may recognize this approach from DESeq2: before calculating PCA we used vst and selected top 10% most variable genes.
+You may recognize this approach from DESeq2: before calculating PCA we used vst and selected the top 10% most variable genes.
 By default the top 2,000 genes are selected.
 The number is a convention, and results are usually robust to moderate changes (e.g. 1,000-3,000).
 
@@ -512,7 +512,7 @@ head(VariableFeatures(pbmc), 10)
 head(HVFInfo(pbmc))
 ```
 
-Let's plot the variance against the mean expression, highlighting the variable genes (red), and label the top 10.
+Let's plot the variance against the mean expression, highlighting the variable genes (red), and labeling the top 10.
 
 ```{r, message=FALSE}
 # Identify the 10 most highly variable genes
@@ -594,7 +594,7 @@ If you are interested in other differences between cells, removing the cell cycl
 If proliferation is part of your biology (e.g. tumor cells, differentiating progenitors), regressing it out removes the signal you are interested in.
 
 Before regressing out cell cycle score or any other feature, you should first proceed with PCA, clustering and UMAP.
-If you notice that, for example, cell cycle phase, not cell type, drives the clustering, you may go back to scaling step, regress cell cycle scores and re-run downstream steps.
+If you notice that, for example, cell cycle phase, not cell type, drives the clustering, you may go back to the scaling step, regress cell cycle scores and re-run downstream steps.
 
 For PBMCs this is not necessary.
 Most blood cells are resting (G0), so there is no cell cycle signal to remove.
@@ -634,7 +634,7 @@ However, how many components should we choose to include?
 20?
 100?
 
-We can use elbow plot - a ranking of principle components based on the percentage of variance explained by each one ([`ElbowPlot()`](https://satijalab.org/seurat/reference/elbowplot) function).
+We can use an elbow plot - a ranking of principal components based on the percentage of variance explained by each one ([`ElbowPlot()`](https://satijalab.org/seurat/reference/elbowplot) function).
 In this example, we can observe an ‘elbow’ around PC9-10, suggesting that the majority of true signal is captured in the first 10 PCs.
 
 ```{r}
@@ -642,10 +642,10 @@ ElbowPlot(pbmc)
 ```
 
 Choosing the optimal number of dimensions to use for downstream analyses can be challenging.
-If you are uncertain, it is better no include more PCs beyond the elbow, e.g 12-15.
-Cutting out the PCs, that don't contribute to explaining more variance, reduces the technical noise and can improve clustering.
-However, if your dataset contains rare cell type, that you wish to identify, you might need to include more dimensions, as rare cell types are often correlated with later PCs and might be barely distinguishable from the noise.
-Depending on what you try to discover, you may need to repeat downstream analyses with different number of PCs.
+If you are uncertain, it is better not to include more PCs beyond the elbow, e.g. 12-15.
+Cutting out the PCs that don't contribute to explaining more variance, reduces the technical noise and can improve clustering.
+However, if your dataset contains rare cell types that you wish to identify, you might need to include more dimensions, as rare cell types are often correlated with later PCs and might be barely distinguishable from the noise.
+Depending on what you try to discover, you may need to repeat downstream analyses with a different number of PCs.
 In this tutorial we will use the first 10 PCs for downstream analyses.
 
 # Clustering
@@ -670,7 +670,7 @@ Keep in mind that clusters are not the same as cell types.
 They become cell types only after we annotate them using marker genes and prior knowledge.
 Also, the cluster numbers are arbitrary labels, and they can change if you rerun the analysis with different parameters.
 
-The default clustering method is Louvain, but we will use Leiden, as it slightly improves Louvain.
+The default clustering method is Louvain, but we will use Leiden, as it slightly improves on Louvain.
 In practice, on simple datasets like pbmc, these two clustering methods yield very similar results.
 
 ```{r, warning=FALSE}
@@ -760,7 +760,7 @@ pbmc <- RunUMAP(pbmc, dims = 1:10)
 pbmc
 ```
 
-UMAP appeared in the dimensional reduction next to PCA
+UMAP appeared in the dimensional reduction next to PCA.
 
 We can save the seurat object, so we don't have to rerun everything again when we close R.
 
@@ -771,7 +771,7 @@ saveRDS(pbmc, file = "data/pbmc_seurat.rds")
 ## UMAP plots
 
 The UMAP is a map of the cells, and we can color it by different information to learn about the data.
-This is one of the most common type of plot in single-cell world.
+This is one of the most common types of plots in the single-cell world.
 Seurat has two main functions:
 
 - `DimPlot()` colors cells by a categorical variable from the metadata, e.g. clusters, sample, condition or `QC_pass`.
@@ -785,7 +785,7 @@ DimPlot(pbmc, reduction = "umap", label = TRUE)
 levels(Idents(pbmc))
 ```
 
-By default `DimPlot` groups cells by their Identity, which in this case is the last resolution that we ran
+By default `DimPlot` groups cells by their Identity, which in this case is the last resolution that we ran.
 
 Useful arguments:
 
@@ -822,16 +822,18 @@ DimPlot(pbmc, group.by = "Phase")
 FeaturePlot(pbmc, features = c("IL7R", "MS4A1", "PPBP", "GNLY"), order = TRUE)
 ```
 
-> **Exercise**
->
-> We mentioned earlier that sometimes there might be a strong effect, that drives the clustering that is not the cell type.
-> In that case, we might want to regress that feature.
-> Based on the above plots, is there any technical/ non-cell-type-derived factor that defines a cluster?
-> Or is the clustering driven by marker genes?
+::: callout-note
+## Exercise 1
+
+We mentioned earlier that sometimes there might be a strong effect that drives the clustering that is not the cell type.
+In that case, we might want to regress that feature.
+Based on the above plots, is there any technical/non-cell-type-derived factor that defines a cluster?
+Or is the clustering driven by marker genes?
+:::
 
 # Choosing optimal clustering resolution
 
-This is one of the most important problems in single cell analysis, because the clustering resolution you choose will determine lots of downstream analyses.
+This is one of the most important problems in single-cell analysis, because the clustering resolution you choose will determine lots of downstream analyses.
 There is no single correct resolution.
 Clusters are a mathematical representation of the data, and the "right" number depends on the question you ask: a lower resolution for broad cell types (T cells, B cells, monocytes), a higher one to resolve subtypes (CD4 vs CD8 T cells).
 It is common to start coarse and sub-cluster only the populations of interest.
@@ -854,7 +856,7 @@ It is common to start coarse and sub-cluster only the populations of interest.
 
 ## Clustering tree
 
-Let's inspect the clustering tree
+Let's inspect the clustering tree.
 
 ```{r, fig.width=8, fig.height=8}
 
@@ -868,19 +870,19 @@ Node size is the number of cells in a cluster, and arrows go from a cluster at o
 Clusters 1, 2 and 3 each split in two, and cluster 4 passes through unchanged.
 All of these are clean splits, with each child coming from a single parent.
 
-**0.5 → 0.8** Almost everything is one-to-one
+**0.5 → 0.8** Almost everything is one-to-one.
 
 **0.8 → 1.0** Nothing new.
 Everything is one-to-one
 
-**1.0 –\> 1.2** Splits three clusters
+**1.0 –\> 1.2** Splits three clusters.
 
 ## Find marker genes
 
 The clustering tree tells us which clusters split, but not whether a split is biologically meaningful.
 For that, we can ask whether the clusters are different enough to have their own marker genes.
 `FindAllMarkers()` compares each cluster to all other cells and returns the genes that are higher in that cluster.
-We will run FindAllMarkers for each resolution, extract top 10 marker genes/cluster and plot heatmaps of their expression
+We will run FindAllMarkers for each resolution, extract the top 10 marker genes/cluster and plot heatmaps of their expression.
 
 ```{r}
 heatmaps_top10_markers <- list()
@@ -926,27 +928,27 @@ heatmaps_top10_markers
 
 **Rule of thumb**
 
-- Resolution heavy depends on what you are trying to find.
+- Resolution heavily depends on what you are trying to find.
   If you only care about main lineages (for example T cells, B cells) because later on you will focus on only one, it's completely fine to use small resolutions.
   If you want to identify subtypes of e.g.
   T cells, you need to increase the resolution.
   If you want to identify rare cell types you might even want to slightly overcluster and merge similar clusters later.
 
-- In my opinion, if you're not sure it is better to slightly overcluster than undercluster.
+- In my opinion, if you're not sure, it is better to slightly overcluster than undercluster.
 
-**Leiden 0.2**: When we look at the clustering tree, we see that 0.2 –\> 0.5 cleanly splits almost each cluster in 2.
+**Leiden 0.2**: When we look at the clustering tree, we see that 0.2 –\> 0.5 cleanly splits almost every cluster in 2.
 This suggests that at this resolution, clusters are a mix of different cell types.
-When we inspect the actual marker genes, we can see that it is a mixture of two lineages - T cells and NK (T: GZMK, CD8A, CCL5, KLRG1 and NK: GNLY, SPON2, FGFBP2, XCL2) (I goggled these genes and what cell type they might represent).
+When we inspect the actual marker genes, we can see that it is a mixture of two lineages - T cells and NK (T: GZMK, CD8A, CCL5, KLRG1 and NK: GNLY, SPON2, FGFBP2, XCL2) (I googled these genes and what cell type they might represent).
 
-**Leiden 0.5:** We see a diagnonal on the heatmap.
-Some clusters look very similar and could represent the same cell type or a different subtypes of the same cell type.
+**Leiden 0.5:** We see a diagonal on the heatmap.
+Some clusters look very similar and could represent the same cell type or different subtypes of the same cell type.
 The tree shows that when we go 0.5 –\> 0.8 the mapping is almost one-to-one with some exceptions.
 Technically we could stop here but...
 
 **Leiden 0.8:** The tree shows 0.8 is mostly one-to-one with a few exceptions.
 The heatmaps look very similar.
-But take a look at this small cluster 8 that emerged from cluster 3 from 0.5 split.
-It is small but it seems to have distinct marker genes.
+But take a look at this small cluster 8 that emerged from cluster 3 from the 0.5 split.
+It is small, but it seems to have distinct marker genes.
 A quick lookup of these genes shows that cluster 8 may represent dendritic cells.
 
 **Leiden 1.2:** The heatmap starts looking messy without a clear diagonal of yellow blocks.
@@ -958,7 +960,7 @@ Cluster 10 expresses markers like MALAT1, RPS3 and CD8B.
 A cluster whose top markers are MALAT1 and a ribosomal gene is usually separated by RNA quality or ribosomal content, not by cell type.
 
 I think it is reasonable to choose leiden 0.8 as our clustering resolution.
-In my opinion, it represents clean cell types, including smaller population of DC without making the rest of the clusters unstable or loosing specificity.
+In my opinion, it represents clean cell types, including a smaller population of DCs without making the rest of the clusters unstable or losing specificity.
 
 ```{r}
 Idents(pbmc) <- "leiden_0.8"
@@ -978,11 +980,11 @@ There are many ways to annotate clusters.
 The most common approaches are:
 
 - **Manual, marker-based:** compare the top markers of each cluster (from `FindAllMarkers()`) with known cell type markers from the literature or from databases such as PanglaoDB and CellMarker. This is what we did informally above (e.g. GNLY for NK cells, and so on).
-- **Manual, canonical marker-based**. Sometimes there are well known marker genes for certain cell types that didn't show up as top markers using marker detection. Sometimes depending on sequencing depth and other technical variables, canonical marker genes might not be detected at sufficient levels.
+- **Manual, canonical marker-based**. Sometimes there are well-known marker genes for certain cell types that didn't show up as top markers using marker detection. Sometimes depending on sequencing depth and other technical variables, canonical marker genes might not be detected at sufficient levels.
 - **Automated, reference-based:** transfer labels from an already annotated dataset, using tools such as `SingleR`, `Azimuth` or `CellTypist`. It is faster and more reproducible, but it can only label cell types that are present in the reference, and the labels depend on the quality of that reference.
 
-In practice, we use a combination of all these approaches, depending on the data, our prior expertise.
-Intersecting multiple methods gives us a higher confidence that our cluster represent true cell types.
+In practice, we use a combination of all these approaches, depending on the data and our prior expertise.
+Intersecting multiple methods gives us a higher confidence that our clusters represent true cell types.
 
 Things to keep in mind:
 
@@ -991,49 +993,55 @@ Things to keep in mind:
 - **Clusters can be technical.** A cluster without a clear cell type, with low-quality markers (e.g. `MALAT1`, ribosomal genes) or high mitochondrial content, may be a QC artifact and not a real population.
 - **Labels are hypotheses.** Annotations should be revisited when we learn more.
 
-> **Exercise 2**
->
-> This is a pbmc dataset, so we know what cell types to expect in this experiment.
-> Find out what these cell types are and what their canonical marker genes are.
-> Use google, publications and public databases ([CellMarker 2](http://www.bio-bigdata.center/), [PanglaoDB](https://panglaodb.se/index.html), [CellGuide](https://cellxgene.cziscience.com/cellguide)).
-> Use `FeaturePlot()` to confirm that the markers you found are detected and can represent a cell type.
-> Make a table:
->
-> | Cell type | Proportion | Canonical markers | Cluster(s) |
-> |-----------|------------|-------------------|------------|
-> |           |            |                   |            |
-> |           |            |                   |            |
-> |           |            |                   |            |
-> |           |            |                   |            |
-> |           |            |                   |            |
+::: callout-note
+## Exercise 2
 
-> **Exercise 3**
->
-> Take a look at the heatmap of top marker genes.
-> For each cluster, look up its top marker genes.
-> What cell type can marker each represent?
-> This is a reverse search of the previous exercise.
-> You can utilize the same databases.
-> Remember that some markers are more specific than others.
-> If you are not sure, list more than one cell type.
-> Make a table
->
-> | Cluster | Markers | Cell type(s) |
-> |---------|---------|--------------|
-> | 1       |         |              |
-> | 2       |         |              |
-> | 3       |         |              |
-> | 4       |         |              |
-> | 5       |         |              |
-> | 6       |         |              |
-> | 7       |         |              |
-> | 8       |         |              |
+This is a pbmc dataset, so we know what cell types to expect in this experiment.
+Find out what these cell types are and what their canonical marker genes are.
+Use Google, publications and public databases ([CellMarker 2](http://www.bio-bigdata.center/), [PanglaoDB](https://panglaodb.se/index.html), [CellGuide](https://cellxgene.cziscience.com/cellguide)).
+Use `FeaturePlot()` to confirm that the markers you found are detected and can represent a cell type.
+Make a table:
 
-> **Exercise 4**
->
-> Cross-reference the two approaches and see if both ways of annotations overlap or there are discrepancies.
->
-> Assign a cell type to each cluster.
+| Cell type | Proportion | Canonical markers | Cluster(s) |
+|-----------|------------|-------------------|------------|
+|           |            |                   |            |
+|           |            |                   |            |
+|           |            |                   |            |
+|           |            |                   |            |
+|           |            |                   |            |
+:::
+
+::: callout-note
+## Exercise 3
+
+Take a look at the heatmap of top marker genes.
+For each cluster, look up its top marker genes.
+What cell type can each marker represent?
+This is a reverse search of the previous exercise.
+You can utilize the same databases.
+Remember that some markers are more specific than others.
+If you are not sure, list more than one cell type.
+Make a table:
+
+| Cluster | Markers | Cell type(s) |
+|---------|---------|--------------|
+| 1       |         |              |
+| 2       |         |              |
+| 3       |         |              |
+| 4       |         |              |
+| 5       |         |              |
+| 6       |         |              |
+| 7       |         |              |
+| 8       |         |              |
+:::
+
+::: callout-note
+## Exercise 4
+
+Cross-reference the two approaches and see if both ways of annotation overlap or there are discrepancies.
+
+Assign a cell type to each cluster.
+:::
 
 ```{r, eval=FALSE}
 labels <- c(
@@ -1051,15 +1059,17 @@ pbmc <- RenameIdents(pbmc, labels)
 pbmc$celltype <- Idents(pbmc)   # save it, since Idents are easily overwritten
 ```
 
-> **Exercise 5**
->
-> As a sanity check run `FindAllMarkers` on the new Idents and make sure that the results are correct.
-> Prepare a figure showing:
->
-> 1.  UMAP grouped by celltype with each cluster labeled.
-> 2.  A plot showing proportion of each cell type (e.g. stacked barplot)
-> 3.  FeaturePlot with one canonical marker gene per cell type
-> 4.  DotPlot or heatmap with top 5 marker genes per cell type
+::: callout-note
+## Exercise 5
+
+As a sanity check, run `FindAllMarkers` on the new Idents and make sure that the results are correct.
+Prepare a figure showing:
+
+1.  UMAP grouped by celltype with each cluster labeled.
+2.  A plot showing proportion of each cell type (e.g. stacked barplot)
+3.  FeaturePlot with one canonical marker gene per cell type
+4.  DotPlot or heatmap with top 5 marker genes per cell type
+:::
 
 ## Example answer
 

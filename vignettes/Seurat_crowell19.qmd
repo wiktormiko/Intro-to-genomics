@@ -1,6 +1,6 @@
 ---
 title: "Seurat workflow: Integration"
-description: "Single-cell RNA-seq analysis Part II: Doublet detection,integration, pseudobulk"
+description: "Single-cell RNA-seq analysis Part II: Doublet detection, integration, pseudobulk"
 author: "Wiktor Mikolajczak"
 editor: visual
 ---
@@ -18,7 +18,7 @@ knitr::opts_chunk$set(
 
 Introduction to Seurat workflow
 
-This vignette is based on [Seurat - Guided clustering tutorial](https://satijalab.org/seurat/articles/pbmc3k_tutorial)
+This vignette is based on [Seurat - Guided clustering tutorial](https://satijalab.org/seurat/articles/pbmc3k_tutorial).
 
 Use this vignette as a general guideline, not a ground truth.
 There is no one way to analyze genomics data.
@@ -39,18 +39,18 @@ It is vital that, before any analysis, you familiarize yourself with the data se
 Instead of just copy-pasting the code, try implementing the following logic:
 
 1.  Read the vignette first. Try to understand each step.
-2.  Without looking at the vignette, write down the main steps of the workflow (use headers to build an outline of your document at the same time). For each step, write a short comment: What is this step for?, Why is it important? Compare your answers with the vignette. It is ok if you don't remember the exact code or the name of the functions. It's more important that you understand each step conceptually.
+2.  Without looking at the vignette, write down the main steps of the workflow (use headers to build an outline of your document at the same time). For each step, write a short comment: What is this step for? Why is it important? Compare your answers with the vignette. It is OK if you don't remember the exact code or the name of the functions. It's more important that you understand each step conceptually.
 3.  After each step write down your observations. What has changed?
-4.  At the end of your analysis, think about and write down conclusions. It doesn't have to be an academic assay but try to state the main points and do a little bit of goggling.
+4.  At the end of your analysis, think about and write down conclusions. It doesn't have to be an academic essay but try to state the main points and do a little bit of googling.
     - Are you able to answer the initial research question and confirm/deny the hypotheses?
     - Try to connect what is known with what you have found.
 
 The goal of this training is to help you understand the general workflow of single-cell RNA-seq analysis.
 Although using AI can be beneficial and speed up your analysis, it is important that you have a good understanding of topics covered in this training and you have truly mastered the skill.
 Only then you can use AI to help you with the analysis.
-It is fine, to ask AI to help you with customizing a ggplot, but try not to use it for the actual analysis.
+It is fine to ask AI to help you with customizing a ggplot, but try not to use it for the actual analysis.
 
-If you don't know what a function does, run `?function_name` in Console.
+If you don't know what a function does, run `?function_name` in the Console.
 
 # About the dataset
 
@@ -81,7 +81,7 @@ library(harmony)
 
 Data can be downloaded from [figshare](https://figshare.com/articles/dataset/On_the_discovery_of_population-specific_state_transitions_from_single-cell_RNA_sequencing_data/8976473).
 Each sample is a separate library.
-With the pbmc data we had only one sample so we had to create one seurat object.
+With the pbmc data we had only one sample, so we had to create one seurat object.
 Here we need to create 8 objects.
 
 ```{r}
@@ -104,7 +104,7 @@ for (d in dirs) {
 
 ## Create seurat objects
 
-Instead of copy-pasting and adjusting code for each sample individually, we're gonna be smart about and use a for loop to streamline the process.
+Instead of copy-pasting and adjusting code for each sample individually, we're gonna be smart about it and use a for loop to streamline the process.
 
 ```{r}
 # 1. Get the paths for each sample
@@ -144,7 +144,7 @@ head(seurat_objs[["LC017"]]@meta.data)
 
 Now we have a list of 8 Seurat objects.
 We can merge them into one object.
-That is why we added the information to meta data at the beginning, so we are able to tell the samples apart in a merged object.
+That is why we added the information to metadata at the beginning, so we are able to tell the samples apart in a merged object.
 
 ```{r}
 so <- merge(x= seurat_objs[[1]], y= seurat_objs[-1], add.cell.ids = names(seurat_objs)) # x has to be a seurat obj, y can be a list of seurat objs, that's why x is the first element of the list, and y is the list without the first object
@@ -154,15 +154,15 @@ so <- merge(x= seurat_objs[[1]], y= seurat_objs[-1], add.cell.ids = names(seurat
 so
 ```
 
-After merging, the RNA assay has now 8 count layers - separate layer for each sample.
+After merging, the RNA assay now has 8 count layers - a separate layer for each sample.
 
 ```{r}
 table(so$sample)
 ```
 
-The metadatas of individual seurat objects are now merged into one.
+The metadata of individual seurat objects are now merged into one.
 
-Single-cell data can take lots of memory and we should be mindful of any large objects that we don't longer need.
+Single-cell data can take lots of memory and we should be mindful of any large objects that we no longer need.
 We can remove `seurat_objs` from the environment, because we will be using the merged one.
 
 ```{r}
@@ -177,8 +177,8 @@ gc()
 In the pbmc dataset we looked at the distribution of multiple metrics and determined the cutoffs.
 It is easy with one sample.
 Here we have 8 samples, and we can't set one threshold for all samples, because each of them has a different distribution.
-We could look and individual distributions and set the thresholds manually for each sample.
-For 8 samples it' already a lot, so if we had 30 samples, that would be cumbersome.
+We could look at individual distributions and set the thresholds manually for each sample.
+For 8 samples it's already a lot, so if we had 30 samples, that would be cumbersome.
 
 Instead of setting thresholds manually for each sample individually, we're gonna use some tricks to streamline the process.
 We will use an approach that involves MAD.
@@ -198,13 +198,13 @@ A few practical points:
 - **Log-transform counts and genes first.** Their distributions are skewed, so MADs work better on the log scale.
 - **The number of MADs is a choice.** 3 is a common default, and 5 is more permissive. Look at the plots to check that the thresholds make sense.
 
-First we will calculate percent mt for each cell
+First we will calculate percent mt for each cell.
 
 ```{r}
 so <- PercentageFeatureSet(so, pattern = '^mt-', col.name = "mito.percent") # mt - because its mouse
 ```
 
-Let's first see how the distributions for each metric look like before we do anything.
+Let's first see how the distributions for each metric look before we do anything.
 I'm feeling fancy and want to make my own plots.
 
 ```{r}
@@ -264,8 +264,8 @@ You can clearly see that the distributions of the metrics vary a lot between the
 That is why we cannot inspect them together.
 
 Let's add those MAD outliers.
-We will use `isOutlier()` function from `scuttle`, that takes a metric and a batch vectors and performes per sample QC.
-TRUE means that this cell is an outlier
+We will use the `isOutlier()` function from `scuttle`, that takes a metric and a batch vector and performs per-sample QC.
+TRUE means that this cell is an outlier.
 
 ```{r}
 so$umi_outlier <- isOutlier(so$nCount_RNA, type = 'both', nmads = 3, log=T, batch = so$orig.ident)
@@ -273,7 +273,7 @@ so$ngenes_outlier <- isOutlier(so$nFeature_RNA, type = 'both', nmads = 3, log=T,
 so$mito_outlier <- isOutlier(so$mito.percent, type = 'higher', nmads = 3, log=F, batch = so$orig.ident)
 ```
 
-We can check the actual thresholds here
+We can check the actual thresholds here.
 
 ```{r}
 attr(isOutlier(so$nCount_RNA, nmads = 3, type = "both", batch = so$orig.ident, log = T), "thresholds")
@@ -289,16 +289,16 @@ table(so$mito_outlier, so$sample)
 
 Most of the samples have generally low mito% with low spread.
 LC020 has a higher spread.
-It might just be sample specific effect that is driven by certain cell types, but it might also suggest of dying or lyzed cells.
-Let's see the relationship between mito% and #genes
+It might just be a sample-specific effect that is driven by certain cell types, but it might also suggest dying or lysed cells.
+Let's see the relationship between mito% and #genes.
 
 ```{r, fig.width=20, fig.height=10}
 FeatureScatter(so, "nFeature_RNA", 'mito.percent', group.by = 'mito_outlier', split.by = 'sample', ncol = 4)
 ```
 
-I don't want to set a strict threshold of 5% because maybe there are cell specific to a sample where they naturally have a higher mito content.
-Lots of samples are very clean so the mad cutoffs are very strict.
-I going to combine MAD with a floor of 5%, so the cutoff cannot be lower than 5%.
+I don't want to set a strict threshold of 5% because maybe there are cells specific to a sample where they naturally have a higher mito content.
+Lots of samples are very clean, so the MAD cutoffs are very strict.
+I am going to combine MAD with a floor of 5%, so the cutoff cannot be lower than 5%.
 If I see that LC020 behaves abnormally during clustering and UMAP, I can always go back and remove more cells.\
 
 ```{r}
@@ -350,7 +350,7 @@ Things to keep in mind:
 
 We will use `scDblFinder`
 
-`scDblFinder` doesn't work on Seurat object, it needs a `SingleCellExperiment` object.
+`scDblFinder` doesn't work on a Seurat object; it needs a `SingleCellExperiment` object.
 Thankfully it is very easy to convert Seurat into SCE.
 We need to join the count layers before we convert Seurat to SCE.
 I'm gonna create a custom function to streamline the process.
@@ -381,7 +381,7 @@ so$doublet <- doublets$doublet
 ```
 
 This might take a while to run.
-Import [this table](https://github.com/wiktormiko/Intro-to-genomics/blob/main/vignettes/data/crowell19/crowell_metadata_doublet_calls.csv) and extract the `doublet` and `doublet_score` columns and add to your metadata.
+Import [this table](https://github.com/wiktormiko/Intro-to-genomics/blob/main/vignettes/data/crowell19/crowell_metadata_doublet_calls.csv) and extract the `doublet` and `doublet_score` columns and add them to your metadata.
 
 `data/crowell_metadata_doublet_calls.csv`
 
@@ -406,7 +406,7 @@ table(so$doublet, so$sample)
 
 ```
 
-Let's combine all these together
+Let's combine all these together.
 
 ```{r}
 so$is_outlier <- so$umi_outlier | so$ngenes_outlier | so$mito_outlier| so$doublet
@@ -466,7 +466,7 @@ so[["RNA"]] <- split(so[["RNA"]], f = so$sample)
 so
 ```
 
-Layers are split, we don't need to do anything.
+Layers are split; we don't need to do anything.
 
 We will calculate cell cycle scores.
 Seurat only provides lists for human genome, but we can convert them to mouse.
@@ -508,11 +508,11 @@ DimPlot(so, reduction = 'umap_unintegrated', group.by = c('leiden_0.8_unintegrat
 DimPlot(so, reduction = 'umap_unintegrated', group.by = 'leiden_0.8_unintegrated', split.by = 'sample', ncol = 4, label = T)
 ```
 
-When we look at the umap plots, although samples seem to overlap quite well, there are still some discrepancies.
-Some clusters are dominated by one or two samples, one cluster still separates by condition.
-Although, there might be cell types that are specific to a sample or condition, it is more likely that some clusters are not driven by cell type, but by sample/library.
-The goal of clustering is that each cluster represent a cell type, not sample/library.
-That's why we we often use **intergration**, when we are dealing with multiple samples/libraries/batches.
+When we look at the UMAP plots, although samples seem to overlap quite well, there are still some discrepancies.
+Some clusters are dominated by one or two samples; one cluster still separates by condition.
+Although there might be cell types that are specific to a sample or condition, it is more likely that some clusters are not driven by cell type, but by sample/library.
+The goal of clustering is that each cluster represents a cell type, not sample/library.
+That's why we often use **integration**, when we are dealing with multiple samples/libraries/batches.
 
 # Integration
 
@@ -533,16 +533,16 @@ Integration is only used for embedding, clustering and visualization.
 Differential expression is still done on the original (joined) expression values, not on integrated values.
 
 **Do we always need it?** No.
-First check whether there is a problem, e.g. a UMAP coloured by sample.
+First check whether there is a problem, e.g. a UMAP colored by sample.
 If samples already mix well, integration is not needed, and too aggressive integration can remove real biology (e.g. a cell type or condition effect present in only some samples).
-There are many integration method, each suited for different scenario.
+There are many integration methods, each suited for a different scenario.
 Sometimes we may need a harsh integration if we, for example, re-analyze public data and want to combine samples from different studies.
 Other times, our genetic knock-out or treatment may alter cell type composition and there might be a small subpopulation that is specific to one condition.
-If we out integration method is too aggressive, that rare cell population might blended with with a similar cell types and we ultimately loose that condition-specific rare cell type.
+If our integration method is too aggressive, that rare cell population might be blended with similar cell types and we ultimately lose that condition-specific rare cell type.
 
 ### General approaches
 
-- **Anchor-based / mutual nearest neighbours:** find pairs of similar cells across datasets and use them to correct one dataset towards another (Seurat CCA / RPCA, MNN, fastMNN).
+- **Anchor-based / mutual nearest neighbors:** find pairs of similar cells across datasets and use them to correct one dataset towards another (Seurat CCA / RPCA, MNN, fastMNN).
 - **Embedding correction:** leave the expression values alone and adjust the PCA coordinates so batches overlap (Harmony).
 - **Probabilistic / deep learning models:** learn a latent space that is corrected for batch (scVI, scANVI).
 - **Reference mapping:** project new samples onto an already annotated reference instead of integrating everything together.
@@ -552,7 +552,7 @@ If we out integration method is too aggressive, that rare cell population might 
 We will use [Harmony](https://doi.org/10.1038/s41592-019-0619-0), which works on the PCA embedding.
 It repeatedly (1) clusters the cells softly, with a penalty for clusters dominated by a single sample, and (2) computes a cluster-specific linear correction per sample and moves the cells accordingly, until the cells are well mixed.
 It is fast, memory-efficient and scales to many samples.
-The output is a corrected embedding (`harmony`) that replaces PCA for neighbours, clustering and UMAP.
+The output is a corrected embedding (`harmony`) that replaces PCA for neighbors, clustering and UMAP.
 This is why we keep the per-sample layers and run PCA first.
 
 ```{r}
@@ -566,7 +566,7 @@ so <- RunHarmony(so, group.by.vars = 'sample') # We need to specify our batches/
 so
 ```
 
-After running harmony, we get a new reduction "harmony", we will use it instead of pca to run neighbors and umap, since harmony is basically a batch corrected pca (oversimplification :p).
+After running Harmony, we get a new reduction "harmony"; we will use it instead of PCA to run neighbors and UMAP, since harmony is basically a batch-corrected PCA (oversimplification :p).
 
 ```{r}
 so <- so |> 
@@ -597,7 +597,7 @@ p1/p2
 DimPlot(so, reduction = 'umap', group.by = 'leiden_0.8', split.by = 'sample', ncol = 4, label = T)
 ```
 
-Let's plot relative contribution of each sample to clusters.
+Let's plot the relative contribution of each sample to clusters.
 
 ```{r}
 plot_cluster_composition <- function(seurat_object, cluster_col = "seurat_clusters" ,sample_col = 'orig.ident'){
@@ -623,17 +623,17 @@ plot_cluster_composition(so, 'leiden_0.8')
 ::: callout-note
 ## Exercise 4
 
-Did the integration help aligning samples together?
+Did the integration help align samples together?
 Are there still clusters dominated by one or two samples?
 :::
 
-# Additional QC's
+# Additional QCs
 
 ## Identification of poor quality cells
 
 Now it is a good time to go back to our QC metrics.
-Sometimes a cluster doesn't represent a cell type but it consist of cells of poor quality.
-Although we did prefiltering, we might have not catch all poor quality cells.
+Sometimes a cluster doesn't represent a cell type, but it consists of cells of poor quality.
+Although we did prefiltering, we might not have caught all poor-quality cells.
 Clustering and UMAP projection can help identify those cells, because they might now cluster together.
 
 ::: callout-note
@@ -665,7 +665,7 @@ Hemoglobin usually means blood left in the tissue, since mature mouse red blood 
 ::: callout-note
 ## Exercise 6
 
-1.  As an additional check, identify cluster-specific markers and plot top 5 markers/cluster using `DotPlot` function.
+1.  As an additional check, identify cluster-specific markers and plot the top 5 markers/cluster using the `DotPlot` function.
 2.  Are there any clusters that look suspicious, i.e. don't express any markers, or express the low-quality genes?
 3.  What samples contribute to those clusters?
 4.  Once you have identified these clusters, remove them.
@@ -713,10 +713,10 @@ Removing cells (outliers, doublets, low-quality clusters) does not update any of
 
 - **Scaling:** the mean and variance of each gene were computed with the removed cells included.
 - **HVGs:** genes that were variable only because of the removed cells (e.g. doublet or dying-cell signatures) can remain in the list, and genes that matter for the remaining cells can be missed.
-- **PCA, Harmony ,neighbors, clusters, UMAP:** these were built on a graph and embedding that included the removed cells. The principal components partly reflect variation that no longer exists, and clusters can be split or merged because of them.
+- **PCA, Harmony, neighbors, clusters, UMAP:** these were built on a graph and embedding that included the removed cells. The principal components partly reflect variation that no longer exists, and clusters can be split or merged because of them.
 
 Normalization works on each cell independently, so technically we don't have to run it again.
-Some normalization methods like SCT rely on cell composition so they need to be re-run.
+Some normalization methods like SCT rely on cell composition, so they need to be re-run.
 We'll run `NormalizeData` again to keep our pipeline cohesive.
 
 ```{r}
@@ -745,7 +745,7 @@ so <- so |>
 ::: callout-note
 ## Exercise 7
 
-Subsetting and reclustering might sometimes reveal additional populations of low quality cells.
+Subsetting and reclustering might sometimes reveal additional populations of low-quality cells.
 Check if any of the new clusters raise concerns.
 :::
 
@@ -753,12 +753,12 @@ Check if any of the new clusters raise concerns.
 
 Once you feel like all artifacts have been removed, proceed with clustering.
 So far we've only tried a single clustering resolution, because we were still curating our final data set.
-By now you know the drill, we should try multiple resolutions and asses which one results in optimal clusters, i.e. not under or massively overclustered.
+By now you know the drill; we should try multiple resolutions and assess which one results in optimal clusters, i.e. not under or massively overclustered.
 
 ::: callout-note
 ## Exercise 8
 
-Run multiple clustering resolutions and evaluate which one is optimal (Check the pbmc vignette if you don't remember the steps)
+Run multiple clustering resolutions and evaluate which one is optimal (Check the pbmc vignette if you don't remember the steps).
 :::
 
 ```{r, eval=FALSE}
@@ -776,7 +776,7 @@ Using cluster-specific marker genes and canonical markers, annotate the clusters
 Keep in mind that this is a mouse brain dataset.
 Based on the experimental setup, assess what cell types you should expect to see.
 That is going to give you a starting point to look up the genes.
-You don't have to be super precise, focus on the main cell types/classes.
+You don't have to be super precise; focus on the main cell types/classes.
 Annotation is also an iterative process.
 :::
 
@@ -830,7 +830,7 @@ so$celltype_manual <- Idents(so)   # save it, since Idents are easily overwritte
 
 ## Reference based annotation
 
-Instead of labelling clusters by hand from marker genes, we can transfer labels from an **annotated reference dataset**.
+Instead of labeling clusters by hand from marker genes, we can transfer labels from an **annotated reference dataset**.
 The reference can be a curated bulk or single-cell atlas of the same tissue and species.
 Each cell in our data (or each cluster) is compared to the reference and gets the label of the most similar reference cells.
 
@@ -848,15 +848,15 @@ Things to keep in mind:
 
 ### Web-based tools
 
-[MapMyCells](https://brain-map.org/bkp/analyze/mapmycells#taxonomies) allows users to assign cell type names from Allen Institute-hosted taxonomies to their own single cell and spatial transcriptomics data.
+[MapMyCells](https://brain-map.org/bkp/analyze/mapmycells#taxonomies) allows users to assign cell type names from Allen Institute-hosted taxonomies to their own single-cell and spatial transcriptomics data.
 It.
-is an online tool with several available references, focusing on both human and mouse brain tissues, so it suits well for our dataset.
+is an online tool with several available references, focusing on both human and mouse brain tissues, so it suits our dataset well.
 It is not possible to use a custom reference, so you can't use it for anything other than brain.
 There are other web-based tools though.
 
 We need to supply a raw count matrix where rows are cells and columns are genes (csv or anndata; up to 2GB).
 
-First, we have to convert the seurat object into h5ad (or csv)
+First, we have to convert the Seurat object into h5ad (or csv).
 
 ```{r, eval=FALSE}
 # BiocManager::install('anndataR')
@@ -872,7 +872,7 @@ write_simple_h5ad <- function(seurat_object, path){
 write_simple_h5ad(so, 'crowell.h5ad')
 ```
 
-Supply this file to [MapMyCells](https://knowledge.brain-map.org/mapmycells/process?refTaxonomyId=10xGene) choosing 10x Whole mouse brain as reference
+Supply this file to [MapMyCells](https://knowledge.brain-map.org/mapmycells/process?refTaxonomyId=10xGene), choosing 10x Whole mouse brain as the reference.
 
 ```{r}
 file <- "data/crowell19/crowell_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1792284248846.csv"
@@ -884,7 +884,7 @@ idx <- match(colnames(so), map$cell_id)
 
 Let's check the results and see whether they are trustworthy.
 
-1.  Add all 4 levels of annotation
+1.  Add all 4 levels of annotation.
 
 ```{r}
 for (lv in c("class", "subclass", "supertype", "cluster")) {
@@ -895,7 +895,7 @@ stopifnot(!anyNA(idx))                                   # every cell mapped
 md <- as_tibble(so@meta.data, rownames='cell') |> dplyr::mutate(cluster = as.character(leiden_0.8))
 ```
 
-2.  Is the mapping trustworthy
+2.  Is the mapping trustworthy?
 
 ```{r, fig.height=6, fig.width=12}
 sort(table(so$mmc_class), decreasing = TRUE)          
@@ -905,9 +905,9 @@ FeaturePlot(so, "mmc_subclass_prob") + coord_equal()                  # are low-
 ```
 
 Most cells are confident and fall into the expected classes.
-Most labels are localized in clusters, they are not spread-out across multiple clusters.
+Most labels are localized in clusters; they are not spread out across multiple clusters.
 
-3.  Summarize per cluster. We'll take most common label in each cluster.
+3.  Summarize per cluster. We'll take the most common label in each cluster.
 
 ```{r, fig.width=15, fig.height=8}
 cluster_labels <- so@meta.data |>
@@ -926,12 +926,12 @@ table(so$celltype_manual, so$celltype_mmc)    # compare with manual labels
 ```
 
 I used the clustering resolution 0.8, but you should use the resolution that you have identified to be optimal (Exercise 9).
-From my experience the mapping tends to be better, if the cells are slightly overclustered.
+From my experience, the mapping tends to be better if the cells are slightly overclustered.
 As an exercise you can try mapping on different resolutions.
 
 ### Label transfer
 
-Label transfer uses an annotated reference Seuratobject.
+Label transfer uses an annotated reference Seurat object.
 It finds pairs of cells that are mutual nearest neighbors between the two datasets (the anchors), then uses those anchors to predict a label for every query cell.
 
 Main steps:
@@ -985,10 +985,10 @@ VlnPlot(so, c('tf_level1_score',"tf_level2_score"), group.by = "leiden_0.8", pt.
 DimPlot(so, group.by = c('tf_level1',"tf_level2"), label = TRUE, repel = TRUE, shuffle = T, ncol = 1) 
 ```
 
-Most cell labels are aggregated around clusters which is a good sign.
+Most cell labels are aggregated around clusters, which is a good sign.
 
-It could be difficult to make sense of the annotations if most clusters where mixture of cell types.
-That could mean that our cluster might not represent cell types (we know they do in this case), the reference cell types are so similar to each other that our dataset is underpowered to tell apart (sequencing depth etc.), or that the reference dataset is not well suited for our dataset.
+It could be difficult to make sense of the annotations if most clusters were a mixture of cell types.
+That could mean that our clusters might not represent cell types (we know they do in this case), the reference cell types are so similar to each other that our dataset is underpowered to tell apart (sequencing depth etc.), or that the reference dataset is not well suited for our dataset.
 
 Similarly to MMC, we will take the most common label for each cluster as a cluster annotation.
 
@@ -1015,7 +1015,7 @@ most_common_label <- function(seurat_obj, anno_col, cluster_col, prefix = anno_c
 }
 ```
 
-This table shows top3 most common labels and proportion of cells in a cluster with that label.
+This table shows the top 3 most common labels and the proportion of cells in a cluster with that label.
 Some more ambiguous annotations should be investigated.
 I'm going to choose the first label for the sake of the tutorial.
 
@@ -1051,24 +1051,24 @@ This is one of the most important steps in the whole analysis because it will di
 ## Exercise 10
 
 Now it is time to compare all methods.
-Often times different atlases use different nomenclatures for the same cell type.
+Oftentimes different atlases use different nomenclatures for the same cell type.
 Some annotations are more general, some are more granular.
 Create two new ultimate/consensus annotations.
-One that is more general (main cell types/classes), e.g. interneurons, and a second one that is more granular, e.g specific type of interneurons.
+One that is more general (main cell types/classes), e.g. interneurons, and a second one that is more granular, e.g. specific types of interneurons.
 It will not always be possible to get a consensus on the more granular annotations.
-In that, case stick to the general one.
+In that case, stick to the general one.
 
-We are not neurobiology experts and know every single subttype of brain tissue.
+We are not neurobiology experts and do not know every single subtype of brain tissue.
 We often consult our annotation results with researchers actively working in the field.
-You can use AI to help with the labels based on the your results.
+You can use AI to help with the labels based on your results.
 MMC reference might be a bit more accurate and reliable for this dataset.
 :::
 
 ::: {.callout-note collapse="true" title="Example annotation" appearance="minimal"}
-This is what claude gave me
+This is what Claude gave me.
 
 | Cluster | General | Granular | Confidence |
-|------------------|------------------|------------------|------------------|
+|----|----|----|----|
 | 1 | Excitatory neurons | Upper-layer excitatory | high |
 | 2 | Excitatory neurons | Layer 6 excitatory (to thalamus) | high |
 | 3 | Excitatory neurons | Mid-layer excitatory | medium |
@@ -1112,11 +1112,11 @@ Once cells have labels, we can start asking the biological questions the experim
 
 This chapter starts with the most common question, differential gene expression (DGE).
 
-You are already familiar with bulk RNA-seq and DESeq worfklow.
+You are already familiar with bulk RNA-seq and the DESeq workflow.
 You'll see that pseudobulk is extremely easy and you use what you already know!
 In our DESeq tutorial we tried to compare gene expression across different conditions.
-That case seemed simple, we dealt with a matrix of counts gene x sample.
-In single-cell world, we have another level of complexity: genes, samples/conditions and idividual cells.
+That case seemed simple; we dealt with a matrix of counts gene x sample.
+In the single-cell world, we have another level of complexity: genes, samples/conditions and individual cells.
 How to deal with all of this?
 One of the common approaches is pseudobulk.
 
@@ -1130,12 +1130,12 @@ The rest of the analysis is virtually the same.
 Cells from the same mouse share genetics, environment and handling, so they are not independent.
 Treating each cell as a replicate (*pseudoreplication*) inflates confidence: methods that ignore replicate variation are biased and can report hundreds of DE genes where no biological difference exists (Squair et al. 2021).
 The number of "significant" genes then follows the number of cells, not the evidence (Murphy et al. 2023).
-Actually we've used a method that treats each cell as a replicate in this analysis.
+Actually, we've used a method that treats each cell as a replicate in this analysis.
 `FindAllMarkers` does exactly that and the p-values are inflated.
-For marker identification it's not problematic, since we focus on top markers anyways - we do not investigate all genes, especially across conditions).
+For marker identification it's not problematic, since we focus on top markers anyway - we do not investigate all genes, especially across conditions.
 
-**Isn't aggregation counterproductive, given single-cell resolution?** \
-We loose single-cell resolution but we still keep the cell-type resolution.
+**Isn't aggregation counterproductive, given single-cell resolution?**\
+We lose single-cell resolution but we still keep the cell-type resolution.
 We aggregate within a cell type, per mouse.
 What we give up is cell-to-cell variability inside one cell type in one mouse, which doesn't answer the question "does LPS change expression?".
 What we actually gain is that summing fixes sparsity.
@@ -1154,15 +1154,15 @@ The robust, simple choice for a first analysis is pseudobulk.
 
 A pseudobulk test compares mice, so a cell type is testable only if enough mice in both conditions contribute enough cells.
 
-**Inclusion/exlusion rules (rules of thumb)**
+**Inclusion/exclusion rules (rules of thumb)**
 
 1.  At least 10 cells per cell type per mouse (arbitrary number).
 
 2.  Cell type/cluster is dominated by one replicate.
     This suggests a potential sampling issue when preparing libraries, making the results less reliable.
-    It might be better to exclude that cluster
+    It might be better to exclude that cluster.
 
-3.  Most of the replicates in each condition contribute to that cell type e.g. 3 out 4 mice.
+3.  Most of the replicates in each condition contribute to that cell type, e.g. 3 out of 4 mice.
 
 ::: callout-note
 ### Exercise 11
@@ -1174,7 +1174,7 @@ Justify the cell types you excluded.
 
 ### Aggregation
 
-Filter the seurat object to include the cell types you'll be testing
+Filter the Seurat object to include the cell types you'll be testing.
 
 ```{r}
 pb <- so
@@ -1182,7 +1182,7 @@ pb <- so
 ```
 
 Now we aggregate the counts.
-I will aggregate over `cell_ann_tf1` but you should use the curated annotations
+I will aggregate over `cell_ann_tf1`, but you should use the curated annotations.
 
 ```{r}
 pb <- AggregateExpression(pb, assays = "RNA", return.seurat = T,
@@ -1196,11 +1196,11 @@ We want to check the effect of LPS in multiple cell types.
 We will run multiple different contrasts in DESeq.
 e.g.
 
-- microglia LPS vs migroglia WT
+- microglia LPS vs microglia WT
 
 - oligodendrocytes LPS vs oligodendrocytes WT etc.
 
-It will be easier for us if we create additional column that combines cell type and condition
+It will be easier for us if we create an additional column that combines cell type and condition.
 
 ```{r}
 mtd$celltype_condition <- paste0(mtd$cell_ann_tf1, "_", mtd$condition)
@@ -1215,16 +1215,16 @@ The level of complexity is slightly higher, because there will be multiple compa
 ::: callout-note
 ### Exercise 12
 
-Run standard deseq2 preprocessing:
+Run standard DESeq2 preprocessing:
 
 1.  Filtering out low count genes. It might be easier to use filter by expression from edgeR and supply your contrast.
 2.  Include only protein coding genes. Exclude mitochondrial, ribosomal genes. Remember that this is mouse data. Check annotables what dataframe is used for mouse reference.
 3.  Create dds with `~celltype_condition` design.
-4.  Run PCA. Make sure to describe the results, e.g separation by condition, do biological reps cluster together, separation by cell type. Which factor acts stronger on sample separation: cell type or treatment? Think of potential reasons why. Is it concerning or expected? Are there any sources of variation that cannot be associated with neither treatment or cell type?
+4.  Run PCA. Make sure to describe the results, e.g. separation by condition, do biological reps cluster together, separation by cell type. Which factor acts stronger on sample separation: cell type or treatment? Think of potential reasons why. Is it concerning or expected? Are there any sources of variation that cannot be associated with neither treatment nor cell type?
 :::
 
 To run multiple different comparisons, it would be cumbersome to copy-paste the same code and change contrast each time.
-Utilize for loops (or other loop like functions)!
+Utilize for loops (or other loop-like functions)!
 
 ```{r, eval=FALSE}
 # change the cell type column name accordingly
@@ -1246,7 +1246,7 @@ dds <- DESeqDataSetFromMatrix(counts, mtd, design = ~celltype_condition)
 dds <- DESeq(dds)
 ```
 
-Generally in pseudobulk you'll get fewer DEGs, bc bulk is more powered.
+Generally in pseudobulk you'll get fewer DEGs, because bulk is more powered.
 That depends on particular dataset, treatment etc.
 It might be better to use p.adj cutoff \< 0.1.
 We can run `lfcShrink` without running results first.
@@ -1274,7 +1274,7 @@ You can use lapply to convert the results to df, and apply your custom function 
 ### Exercise 13
 
 For each contrast, plot the distribution of nominal p-values.
-In your opinion, did the tests ran correctly?
+In your opinion, did the tests run correctly?
 :::
 
 ```{r, eval=FALSE}
@@ -1286,7 +1286,7 @@ res_df <- imap_dfr(res_list, ~ .x %>% dplyr::mutate(contrast = .y))
 ### Exercise 14
 
 Which cell types show the biggest response to LPS treatment?
-Show a barplot with a number of DEGs in each contrast.
+Show a barplot with the number of DEGs in each contrast.
 :::
 
 ```{r, eval=FALSE}
@@ -1297,12 +1297,12 @@ Show a barplot with a number of DEGs in each contrast.
 ::: callout-note
 ### Exercise 15
 
-Focus on 2 cell types that show biggest response.
+Focus on 2 cell types that show the biggest response.
 
-1.  What is the overlap of DEGs between them? Show the overlap on venn diagram
+1.  What is the overlap of DEGs between them? Show the overlap on a Venn diagram
 2.  Do the DEGs show the same directionality?
     1.  Show relation of log2FC between the two contrasts
-    2.  Color the dots whether they are DEGs in x, in y, in both, NS. What is the correlation in each group and global correlation (w/o group stratification)?
+    2.  Color the dots by whether they are DEGs in x, in y, in both, NS. What is the correlation in each group and global correlation (w/o group stratification)?
 3.  Run GSEA analysis for each contrast (look up clusterProfiler tutorial; make sure to rank genes by their Log2FC)
 4.  Comment on the results
 :::
@@ -1311,21 +1311,21 @@ Focus on 2 cell types that show biggest response.
 ## Exercise 16
 
 Pseudobulk DGE is not the only type of analysis that can be done.
-Look up 3 other types of analyses (downstream of cell annotation) that are commonly used in single cell data.
-They don't have to necessarily apply to this dataset.
+Look up 3 other types of analyses (downstream of cell annotation) that are commonly used in single-cell data.
+They don't necessarily have to apply to this dataset.
 Write a few words about each of them!
 :::
 
 # Summary
 
 Congratulations, you made it till the end!
-This was a lot of work, but hopefully this tutorial showed you how real life single-cell data analysis might look like.
+This was a lot of work, but hopefully this tutorial showed you how real-life single-cell data analysis might look like.
 
 As a last exercise, compile the results into multipanel figures.
 Do not include everything, just the essential steps.
 Write a few words summarizing the analysis.
 What are the main observations and conclusions?
-Where you able to answer the initial biological questions?
+Were you able to answer the initial biological questions?
 
 Which parts of this tutorial did you find most useful?
-Which parts where the hardest to understand?
+Which parts were the hardest to understand?

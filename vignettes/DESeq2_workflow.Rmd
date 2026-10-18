@@ -1,5 +1,5 @@
 ---
-title: "DESEq2 workflow"
+title: "DESeq2 workflow"
 description: "Differential expression analysis of bulk RNA-seq data with DESeq2, using the airway dataset."
 author: Wiktor Mikolajczak
 output:
@@ -31,9 +31,9 @@ If you feel like you need more practice, these are really good tutorials and res
     - Introduction to R and individual modules based on your needs, e.g.
       [Data wrangling](https://hbctraining.github.io/Intro-to-R-flipped/lessons/08_data-wrangling-2.html).
 
-2.  [R for data science](https://r4ds.hadley.nz) This is an amazing textbook that covers basically all you need to know about tidyverse
+2.  [R for data science](https://r4ds.hadley.nz) This is an amazing textbook that covers basically all you need to know about tidyverse.
 
-    - I would prioritize Data transformation section but if you are not familiar with ggplot then do Chapter 1 first
+    - I would prioritize Data transformation section, but if you are not familiar with ggplot then do Chapter 1 first
 
     - 12.5.5 Conditional transformations
 
@@ -60,25 +60,25 @@ It is vital that, before any analysis, you familiarize yourself with the data se
 Instead of just copy-pasting the code, try implementing the following logic:
 
 1.  Read the vignette first. Try to understand each step.
-2.  Without looking at the vignette, write down the main steps of the workflow (use headers to build an outline of your document at the same time). For each step, write a short comment: What is this step for?, Why is it important? Compare your answers with the vignette. It is ok if you don't remember the exact code or the name of the functions. It's more important that you understand each step conceptually.
+2.  Without looking at the vignette, write down the main steps of the workflow (use headers to build an outline of your document at the same time). For each step, write a short comment: What is this step for? Why is it important? Compare your answers with the vignette. It is OK if you don't remember the exact code or the name of the functions. It's more important that you understand each step conceptually.
 3.  After each step write down your observations. What has changed? Why did you choose this DESeq design? How does PCA explain the data? Are there any batch/technical effects? How many DEGs? etc.
-4.  At the end of your analysis, think about and write down conclusions. It doesn't have to be an academic assay but try to state the main points and do a little bit of goggling.
+4.  At the end of your analysis, think about and write down conclusions. It doesn't have to be an academic essay but try to state the main points and do a little bit of googling.
     - Are you able to answer the initial research question and confirm/deny the hypotheses?
     - Try to connect what is known with what you have found.
 
-If you have any questions, check the [DESEq2 vignette](https://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html).
+If you have any questions, check the [DESeq2 vignette](https://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html).
 
 The goal of this training is to help you understand the general workflow of differential gene expression analysis.
 Although using AI can be beneficial and speed up your analysis, it is important that you have a good understanding of topics covered in this training and you have truly mastered the skill.
 Only then you can use AI to help you with the analysis.
-It is fine, to ask AI to help you with customizing a ggplot, but try not to use it for the actual analysis.
+It is fine to ask AI to help you with customizing a ggplot, but try not to use it for the actual analysis.
 
-If you don't know what a function does, run `?function_name` in Console.
+If you don't know what a function does, run `?function_name` in the Console.
 
 # About the dataset
 
 This workflow uses the **airway** dataset (Bioconductor package `airway`), an RNA-seq experiment from [Himes et al. 2014, *PLoS ONE*](https://doi.org/10.1371/journal.pone.0099625) (GEO: [GSE52778](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE52778)).
-The code used to generate the tables can be found [data/airway/airway_generate_counts.R](https://github.com/wiktormiko/Intro-to-genomics/blob/main/vignettes/data/airway/airway_generate_counts.R)
+The code used to generate the tables can be found [data/airway/airway_generate_counts.R](https://github.com/wiktormiko/Intro-to-genomics/blob/main/vignettes/data/airway/airway_generate_counts.R).
 
 The count matrix and sample sheet can be found [here](https://github.com/wiktormiko/Intro-to-genomics/tree/main/vignettes/data/airway).
 
@@ -123,7 +123,7 @@ mtd <- read.csv("data/airway/airway_metadata.csv", row.names = 1)
 head(raw_counts)
 ```
 
-Count matrix is a table where rows correspond to gene names and columns - to samples.
+The count matrix is a table where rows correspond to gene names and columns - to samples.
 The gene names are encoded in "ENSEMBL" system.
 We will convert those names to SYMBOLs - regular gene names.
 
@@ -135,7 +135,7 @@ Metadata contains information about samples.
 Each row is a sample and each column describes a metric.
 For example, we can put information about treatment, batch, collection date, patient ID, etc.
 This is a publicly available dataset and the metadata info is shared.
-If you perform the experiment yourself, it is important to create such table yourself with as many details about a sample as you can.
+If you perform the experiment yourself, it is important to create such a table yourself with as many details about a sample as you can.
 
 It is important that the count table and metadata are matching.
 Column names of the count matrix and row names of the metadata have to be the same!
@@ -146,19 +146,19 @@ We can ensure those two are matching by running this:
 all(rownames(mtd) == colnames(raw_counts))
 ```
 
-if they're not in the right order we can use `match()` to reorder one table so it lines up with the other:
+If they're not in the right order we can use `match()` to reorder one table so it lines up with the other:
 
 ```{r}
 raw_counts <- raw_counts[, match(rownames(mtd), colnames(raw_counts))]
 ```
 
-# Pre–filtering
+# Pre-filtering
 
 ## Remove low count genes
 
-It is not necessary to filter out low count genes, because DESEq pipeline does it automatically (`independent filtering`), but applying a small cutoff might make the object smaller and require less computational power and memory.
+It is not necessary to filter out low count genes, because the DESeq pipeline does it automatically (`independent filtering`), but applying a small cutoff might make the object smaller and require less computational power and memory.
 This cutoff is taken from the vignette.
-It's also common to use `filterByExp` from edgeR package
+It's also common to use `filterByExp` from the edgeR package.
 
 `smallestGroupSize` - we have 4 treated and 4 controls so we will use 4.
 
@@ -194,8 +194,8 @@ A gene with high counts in only 1 of 8 samples is most likely noise or an outlie
 Before we do any analysis, we need to do a little bit of a cleanup.
 
 First we need to convert the ENS to SYMBOL.
-We will use `annotables` package, that provides per gene information for different genome versions.
-`airway` dataset uses Grch37 genome assembly.
+We will use the `annotables` package, which provides per gene information for different genome versions.
+The `airway` dataset uses the GRCh37 genome assembly.
 
 ```{r}
 head(grch37)
@@ -214,8 +214,8 @@ gene_anno <- data.frame(ensgene = rownames(raw_counts)) %>%
 ## Retain only protein coding genes
 
 As you can see there are more than 60,000 genes in our dataset (before filtering).
-Human genome has around 20,000 genes, so how is it possible?
-Let's investigate `biotype` column
+The human genome has around 20,000 genes, so how is it possible?
+Let's investigate the `biotype` column.
 
 ```{r}
 table(gene_anno$biotype)
@@ -228,8 +228,8 @@ In this analysis we only care about protein coding genes.
 First we will subset `gene_anno` to only **protein coding genes** and use that table to subset.
 
 We will also remove **mitochondrial genes**, since in our analysis we are not focusing on them.
-Depending on how the library prep was done, some protocols enrich for poly-A molecule, which should remove mitochondrial RNA.
-In this case any left over mito genes are just "pollution".
+Depending on how the library prep was done, some protocols enrich for poly-A molecules, which should remove mitochondrial RNA.
+In this case, any leftover mito genes are just "pollution".
 It is very easy to identify mitochondrial genes - they have a prefix MT- (human) or mt- (mouse).
 If we are not sure whether we should remove mito genes, go back to the experimental design and research question.
 We can calculate a per-sample mitochondrial genes percentage if necessary.
@@ -255,7 +255,7 @@ dim(raw_counts)
 head(raw_counts)
 ```
 
-We are left with \~13,000 genes
+We are left with \~13,000 genes.
 
 # DESeq2 workflow: Part I
 
@@ -278,12 +278,12 @@ The design cannot be fixed after the fact without re-running the analysis, so it
 **How do we decide what goes there?**
 
 1.  Start from your biological question. We want to know which genes change with dexamethasone, so `dex` goes in.
-2.  Add the other variables that are known to affect expression and that you want to correct for, such as cell line, batch, sex, or age. Here the same four cell lines appear both treated and untreated, and different cell lines naturally express genes differently, so `cell` goes in. This is called paired design.
+2.  Add the other variables that are known to affect expression and that you want to correct for, such as cell line, batch, sex, or age. Here the same four cell lines appear both treated and untreated, and different cell lines naturally express genes differently, so `cell` goes in. This is called a paired design.
 3.  Put the variable of interest **last**. DESeq2 tests the last variable in the formula by default.
 4.  Only use columns that exist in the metadata, and only the ones that matter. Identifiers (sample name, run ID) are different for every sample and must not go in the design. Variables that are constant (like `albut` here) carry no information. Don't add variables just because you have them, since each one uses up samples that could have gone into the real comparison.
 
 So our design is `~ cell + dex`.
-In plain words: "compare treated and untreated samples, but control for individual effects of each cell line").
+In plain words: "compare treated and untreated samples, but control for individual effects of each cell line".
 
 **Paired design:** the same cell line (or patient, animal, etc.) is measured in both conditions, so every treated sample has an untreated "partner".
 
@@ -293,7 +293,7 @@ With `cell` in the design, we account for these cell-line specific effects, focu
 
 ## Create a DESeq object
 
-Let's relevel the factors in `dex` column to make sure that untrt is the reference.
+Let's relevel the factors in the `dex` column to make sure that untrt is the reference.
 
 ```{r}
 mtd$dex <- factor(mtd$dex, levels = c('untrt', 'trt'))
@@ -311,7 +311,7 @@ dds
 ```
 
 dds object contains all this individual information and tables in one object.
-Each element can be accessed
+Each element can be accessed.
 
 ```{r}
 dds@design
@@ -322,7 +322,7 @@ head(rowData(dds)) # gene_anno
 
 ## Running DESeq
 
-`DESeq()` this function does the following steps:
+`DESeq()`: this function does the following steps:
 
 1.  estimation of size factors - normalization
 2.  estimation of dispersion
@@ -374,7 +374,7 @@ You use it to ask a few questions:
 
 - Is there an outlier sample that looks like neither group?
 
-PCA requires data transformation that is different that what we did with `DESeq()` function.
+PCA requires data transformation that is different from what we did with `DESeq()` function.
 We need to apply variance-stabilizing transformation, which puts genes on a comparable scale.
 To do so, we will use `vst()` function.
 
@@ -386,7 +386,7 @@ vsd <- vst(dds, blind=FALSE)
 vsd
 ```
 
-I will show two methods of running PCA: one is built in DESeq2 and is simpler, and another using `PCAtools` package, which I prefer because it gives me more control.
+I will show two methods of running PCA: one is built into DESeq2 and is simpler, and another using `PCAtools` package, which I prefer because it gives me more control.
 
 1.  DESeq default
 
@@ -395,9 +395,9 @@ plotPCA(vsd, intgroup=c("cell", "dex"))
 ```
 
 There is a message saying `using ntop=500 top features by variance`.
-Most of the genes are not highly variable across samples (e.g. house keeping genes) and they are not very informative of sample composition and sample-to-sample differences.
-That's why we use a fraction genes with the highest variance - they are the most informative ones, because they vary the most across samples.
-`plotPCA` uses top 500 most highly variable genes by default.
+Most of the genes are not highly variable across samples (e.g. housekeeping genes) and they are not very informative of sample composition and sample-to-sample differences.
+That's why we use a fraction of genes with the highest variance - they are the most informative ones, because they vary the most across samples.
+`plotPCA` uses the top 500 most highly variable genes by default.
 
 2.  Using `PCAtools`
 
@@ -414,35 +414,37 @@ Color represents cell line and shape represents treatment status.
 Thanks to this we can easily identify the main sources of variation:
 
 - PC1 explains 50% of variation and is driven by dex (treatment status) - triangles and dots are clearly separated on the X axis.
-  This is great, because it means that the treatment made a real difference
+  This is great, because it means that the treatment made a real difference.
 
-- PC2 explains 20% variation and is driven by cell line - different colors separate along the Y axis, with the blue color separating the most from the rest.
+- PC2 explains 20% of variation and is driven by cell line - different colors separate along the Y axis, with the blue color separating the most from the rest.
   It is expected to see such spread between biological replicates, because each replicate is a separate cell line.
   There are differences in baseline expression between different cell lines, which is why we see such separation on PC2.
-  This is also why we included cell line in the design - we don't want the differences between cell lines mask the effect of treatment, especially in a paired design.
+  This is also why we included cell line in the design - we don't want the differences between cell lines to mask the effect of treatment, especially in a paired design.
 
-We can color or shape the plot by every variable that exist in our metadata column.
-It is a good practice to play with them, because it might help identify sources of technical variability that can be accounted for in the DESeq design.
+We can color or shape the plot by every variable that exists in our metadata column.
+It is good practice to play with them, because it might help identify sources of technical variability that can be accounted for in the DESeq design.
 
-> **Exercise 1**
->
-> Using information available in the metadata table, check whether there are any other factors that can be correlated with PC1 or PC2.
-> Write a short comment on your observations.
+::: callout-note
+## Exercise 1
+
+Using information available in the metadata table, check whether there are any other factors that can be correlated with PC1 or PC2.
+Write a short comment on your observations.
+:::
 
 # DESeq2 workflow: Part II
 
 ## Differential expression test
 
-Now that we normalized the data and did a QC check with PCA, we can perform Differential Gene Expression - the clue of the analysis.
+Now that we normalized the data and did a QC check with PCA, we can perform Differential Gene Expression - the crux of the analysis.
 In DGE we look for differences in gene expression across two different conditions.
-For example: Gene A is 2x highly expressed in the treated group than untreated.
-We will use `results()` function that return a table with log2 fold change difference between group 1 and group 2 and a p-value.
+For example: Gene A is 2x more highly expressed in the treated group than untreated.
+We will use the `results()` function that returns a table with log2 fold change difference between group 1 and group 2 and a p-value.
 We need to specify `contrast` which takes a vector of characters: `c(column in metadata, group 1, group 2)`.
-Here, we want to investigate the effect of dexamethasone treatment, so we will use dex column and compare trt vs. untrt.
-Alternatively, we can use `name` parameter.
+Here, we want to investigate the effect of dexamethasone treatment, so we will use the dex column and compare trt vs. untrt.
+Alternatively, we can use the `name` parameter.
 The names of coefs can be checked with `resultsNames`.
 Sometimes, in complex designs, not all comparisons are generated.
-In that case we can always stick to `contrast`
+In that case we can always stick to `contrast`.
 
 ```{r}
 resultsNames(dds)
@@ -455,13 +457,13 @@ res <- results(dds, name = "dex_trt_vs_untrt", alpha = 0.05) # alpha is the p-va
 # res <- results(dds, contrast = c("dex", "trt", "untrt"), alpha = 0.05)
 ```
 
-We can obtain a summary of our results
+We can obtain a summary of our results.
 
 ```{r}
 summary(res)
 ```
 
-Out of 13055 tested genes 2023 are expressed higher after the treatment than in control (upregulated) and 1810 are expressed lower after the treatment than in the control (downregulated)
+Out of 13055 tested genes, 2023 are expressed higher after the treatment than in control (upregulated) and 1810 are expressed lower after the treatment than in the control (downregulated).
 
 ```{r}
 head(res)
@@ -488,7 +490,7 @@ These false positives would be mixed in with the real hits, and we could not tel
 sum(res$pvalue < 0.05)
 ```
 
-If we hadn't correct the p-value for multiple testing, we would have to expect that 13% of "significant" genes could be actually not significant - false positive
+If we hadn't corrected the p-value for multiple testing, we would have to expect that 13% of "significant" genes could be actually not significant - false positives.
 
 **Multiple testing correction** fixes this by making the threshold stricter the more genes we test.
 DESeq2 uses the Benjamini-Hochberg method, which controls the **false discovery rate (FDR)**.
@@ -499,12 +501,12 @@ For example, if we keep all genes with `padj` \< 0.05, we accept that about 5% o
 0.05 * sum(res$padj < 0.05)
 ```
 
-A useful metric or test to check if our differential expression test was well calibrated and the results are reliable is to look the distribution of nominal (raw) p-values
+A useful metric or test to check if our differential expression test was well calibrated and the results are reliable is to look at the distribution of nominal (raw) p-values.
 
 - If the test is well calibrated, genes with no real effect (nulls) have p-values spread evenly between 0 and 1.
   Genes with a real effect pile up near 0.
   A healthy histogram is therefore a flat floor with a spike at the left edge.
-  The height of the flat part gives a rough sense of how many genes are truly unchanged.expected, before you trust the padj values.
+  The height of the flat part gives a rough sense of how many genes are truly unchanged.
 
 - Uniform shape with no spike: there is little or no signal, or the experiment is underpowered.
 
@@ -548,9 +550,9 @@ Volcano plots are a common way to display DGE results.
 Each point is a gene, with log2 fold change on the x-axis and -log10 adjusted p-value on the y-axis, so genes with large, significant changes sit in the upper corners.
 
 DESeq2 doesn't have any built-in volcano plot function.
-We can use `EnhancedVolcano` package that offers quick plotting functions.
+We can use the `EnhancedVolcano` package that offers quick plotting functions.
 I do recommend writing your own custom plotting functions.
-First of all, you have more control of what is shown and the aesthetics, but it also help you understand the data structure better.
+First of all, you have more control of what is shown and the aesthetics, but it also helps you understand the data structure better.
 
 Let's test EnhancedVolcano first.
 
@@ -590,7 +592,7 @@ head(deg_table)
 table(deg_table$diffexpressed)
 ```
 
-2.  Built a volcano plot with ggplot2
+2.  Build a volcano plot with ggplot2
 
 ```{r, warning=FALSE}
 ggplot(deg_table, aes(x=log2FoldChange, y=-log10(padj), color = diffexpressed)) +
@@ -604,26 +606,32 @@ ggplot(deg_table, aes(x=log2FoldChange, y=-log10(padj), color = diffexpressed)) 
   ggtitle('Dex: trt vs. untrt')
 ```
 
-> **Exercise 2**
->
-> Modify the volcano plot, by adding label names to the top 20 differentially expressed genes (DEGs), based on the adjusted p-value (hint: use ggrepel).
+::: callout-note
+## Exercise 2
 
-> **Exercise 3**
->
-> Pick 5 DEGs and try to find basic information about their function.
-> Given the context of this study, is it expected to see these genes being differentially expressed?
+Modify the volcano plot, by adding label names to the top 20 differentially expressed genes (DEGs), based on the adjusted p-value (hint: use ggrepel).
+:::
 
-> **Exercise 4**
->
-> You will run the DGE analysis many times and some of the steps might get repetitive.
-> Write your own functions:
->
-> Function 1 should take deseq result object, with arguments: `pvalue_cutoff`, `lfc_cutoff`, `ntop_deg_labels` ,and return a `data.frame` with additional column "diffexpressed" (UP, DOWN, NS)
->
-> Function 2 should take the modified result table and return a ggplot volcano plot.
-> Make it personalized for your own liking, but also flexible, e.g. optionally show top DEGs labels, how many genes to label etc.; display the number of UP, DOWN and NS genes.
->
-> You can name the functions and arguments however you like, but make sure it is descriptive and other people can understand your code.
+::: callout-note
+## Exercise 3
+
+Pick 5 DEGs and try to find basic information about their function.
+Given the context of this study, is it expected to see these genes being differentially expressed?
+:::
+
+::: callout-note
+## Exercise 4
+
+You will run the DGE analysis many times and some of the steps might get repetitive.
+Write your own functions:
+
+Function 1 should take deseq result object, with arguments: `pvalue_cutoff`, `lfc_cutoff`, `ntop_deg_labels`, and return a `data.frame` with additional column "diffexpressed" (UP, DOWN, NS).
+
+Function 2 should take the modified result table and return a ggplot volcano plot.
+Make it personalized for your own liking, but also flexible, e.g. optionally show top DEGs labels, how many genes to label etc.; display the number of UP, DOWN and NS genes.
+
+You can name the functions and arguments however you like, but make sure they are descriptive and other people can understand your code.
+:::
 
 # Pathway enrichment analysis
 
@@ -649,7 +657,7 @@ That is all.
 It is an association between a gene list and a label.
 
 It does not mean the pathway is activated or repressed.
-Several things can break that inference
+Several things can break that inference.
 
 - GO terms are unordered gene sets, with no direction.
   “Negative regulation of apoptosis” contains both genes that block cell death and genes that respond to it.
@@ -676,7 +684,7 @@ Rank-based methods like GSEA avoid hard cutoffs.
 Activity-inference tools (e.g. PROGENy, decoupleR) estimate pathway or TF activity from target gene behavior.
 Orthogonal data such as protein levels, perturbation experiments, or single-cell data can confirm that the pathway really changed.\
 
-We will perform overrepresantation test using `clusterProfiler` package, focusing on Gene Ontology: Biological Processes.
+We will perform overrepresentation test using the `clusterProfiler` package, focusing on Gene Ontology: Biological Processes.
 Make sure to install [org.Hs.eg.db](BiocManager::install(%22org.Hs.eg.db%22))
 
 ```{r}
@@ -702,7 +710,7 @@ GO_down_clean <- simplify(GO_down)
 head(as.data.frame(GO_down_clean))
 ```
 
-clusterProfiler offers lots of tools, including some plotting function.
+clusterProfiler offers lots of tools, including some plotting functions.
 Check their full [vignette](https://yulab-smu.top/biomedical-knowledge-mining-book/index.html).
 It is common to show a couple of the most enriched terms.
 
@@ -713,21 +721,25 @@ dotplot(GO_down,
   ggtitle("GO:BP, DOWN")
 ```
 
-> **Exercise 5**
->
-> Make the same plot for the 'cleaned' results.
-> Are there any differences?
-> How many significant terms does each table have?
+::: callout-note
+## Exercise 5
+
+Make the same plot for the 'cleaned' results.
+Are there any differences?
+How many significant terms does each table have?
+:::
 
 ```{r}
 
 ```
 
-> **Exercise 6**
->
-> Repeat the `enrichGO` and `simplify` for the upregulated genes.
-> Show both groups (up and down simplified) side-by-side, using `patchwork` package.
-> Which group has more specific GO terms, that can be associated with a more direct response to treatment (consider the cell type and what dex does to it)
+::: callout-note
+## Exercise 6
+
+Repeat the `enrichGO` and `simplify` for the upregulated genes.
+Show both groups (up and down simplified) side-by-side, using the `patchwork` package.
+Which group has more specific GO terms that can be associated with a more direct response to treatment (consider the cell type and what dex does to it)?
+:::
 
 # Summary
 
@@ -736,7 +748,7 @@ You made it through your first differential gene expression analysis.
 As a last exercise:
 
 1.  Prepare a figure that combines all the plots you have generated (`patchwork`).
-2.  Write a short description what each panel represents.
+2.  Write a short description of what each panel represents.
 3.  Write general observations.
 4.  Write conclusions. Restate the hypotheses and the research question. Can you confirm/reject the hypotheses and the research question?
 
@@ -745,8 +757,8 @@ As a last exercise:
 Kidding, we are not done yet ;)
 
 Like I mentioned many times, there's usually more than one way to analyze genomics data.
-Sometimes you may wonder, what my filtering step should look like, what should I include in the deseq design, should I apply a log2FC cutoff.
-And often times the answer is: you need to try different approaches and see which one works best.
+Sometimes you may wonder what my filtering step should look like, what I should include in the deseq design, whether I should apply a log2FC cutoff.
+And oftentimes the answer is: you need to try different approaches and see which one works best.
 
 ## Log2 fold change cutoff
 
@@ -754,38 +766,42 @@ The adjusted p-value tells you whether a gene’s change is distinguishable from
 It says nothing about size.
 With enough replicates or high counts, a 5% change can be highly significant, and such changes are often too small to matter biologically.
 A log2FC cutoff keeps only genes with an effect large enough to care about.
-A common choice is \|log2FC\| \> 1 (2-fold) or and 0.5 is also used.
+A common choice is \|log2FC\| \> 1 (2-fold), and 0.5 is also used.
 Neither value has a principled basis, so pick one based on your system and say so in the methods.
 
-> **Exercise 7**
->
-> 1.  Pick a LFC cutoff and apply it to `res` object. Remember that you have created a function to transform the deseq result table - utilize that.
-> 2.  Run the enrichment analysis on the dataset with applied log2FC
-> 3.  Make a figure that shows volcano plot and GO term plots for both no LFC cutoff and LFC cutoff
-> 4.  Write down your observations. Did the LFC cutoff helped making the GO terms more specific?
+::: callout-note
+## Exercise 7
+
+1.  Pick an LFC cutoff and apply it to the `res` object. Remember that you have created a function to transform the deseq result table - utilize that.
+2.  Run the enrichment analysis on the dataset with applied log2FC
+3.  Make a figure that shows a volcano plot and GO term plots for both no LFC cutoff and LFC cutoff
+4.  Write down your observations. Did the LFC cutoff help make the GO terms more specific?
+:::
 
 ## Alternative design
 
 The design that we used so far was `~cell + dex`.
 We said that including cell line information is important, because we are dealing with a paired design.
-But happens if we don't include that information in our design?
+But what happens if we don't include that information in our design?
 
-> **Exercise 8**
->
-> 1.  Create a new `dds` object (different variable name) where you run `~dex` model.
-> 2.  Run and plot PCA
-> 3.  Run `results` (no LFC cutoff)
-> 4.  Plot a histogram of nominal p-values.
-> 5.  Make a scatter plot:
->     a.  x: LFC of `~cell + dex` model; y: LFC of `~dex` model.
->     b.  Comute correlation between x and y. Show the fitted curve and report correlation coefficient and $R^2$
->     c.  Color the genes based on whether they are significant in both, significant in x, significant in y
-> 6.  Make a figure that shows p-value histogram and PCA for both models side by side and the scatter plot:
->     a.  Are the two PCAs different or the same? If they look the same, why that might be? (hint: check in the DESeq2 vignette whether vst and pca include the design information. is there a way to include that? Hint: check deseq2 vignette and `limma::removeBatchEffect()`)
->     b.  How do the two p-value distributions compare? Any concerns?
->     c.  How many DEG did each model identified?
->     d.  How many overlapping and model-specific DEGs?
->     e.  Did including the cell line information improved the analysis?
+::: callout-note
+## Exercise 8
+
+1.  Create a new `dds` object (different variable name) where you run the `~dex` model.
+2.  Run and plot PCA
+3.  Run `results` (no LFC cutoff)
+4.  Plot a histogram of nominal p-values.
+5.  Make a scatter plot:
+    a.  x: LFC of `~cell + dex` model; y: LFC of `~dex` model.
+    b.  Compute correlation between x and y. Show the fitted curve and report correlation coefficient and $R^2$
+    c.  Color the genes based on whether they are significant in both, significant in x, significant in y
+6.  Make a figure that shows p-value histogram and PCA for both models side by side and the scatter plot:
+    a.  Are the two PCAs different or the same? If they look the same, why might that be? (hint: check in the DESeq2 vignette whether vst and pca include the design information. Is there a way to include that? Hint: check the DESeq2 vignette and `limma::removeBatchEffect()`)
+    b.  How do the two p-value distributions compare? Any concerns?
+    c.  How many DEGs did each model identify?
+    d.  How many overlapping and model-specific DEGs?
+    e.  Did including the cell line information improve the analysis?
+:::
 
 # Next steps
 
@@ -795,8 +811,8 @@ Let's test your skills and understanding further.
 This time you will pick your own dataset to work on.
 
 Think of a couple of biological topics that you are interested in.
-It can be a disease model of interest, particular organ, exposure to different environmental factors etc.
-To make things easier, you can use AI (e.g. claude) to help you identify the study.
+It can be a disease model of interest, a particular organ, exposure to different environmental factors etc.
+To make things easier, you can use AI (e.g. Claude) to help you identify the study.
 Describe your interests and ask it to search for studies with publicly available bulk RNA-seq, where raw count matrix and metadata/sample info are available, the design is relatively simple and the sample size is not gigantic.
 
 Once you have a list of candidates, talk to me and we will pick the dataset together.
