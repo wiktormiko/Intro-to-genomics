@@ -451,7 +451,7 @@ saveRDS(so, "data/seurat_crowell.rds")
 
 # Standard processing
 
-## Keep the layers split by sample
+Keep the layers split by sample
 
 We run the regular processing, but with the per-sample count layers kept separate.
 When the RNA assay has one layer per sample, `FindVariableFeatures()` is run on each layer separately and a consensus set of HVGs is then taken across samples.
@@ -566,7 +566,7 @@ so <- RunHarmony(so, group.by.vars = 'sample') # We need to specify our batches/
 so
 ```
 
-After running harmony, we get a new reduction "harmony", we will use it instead of pca to run neighbors and umap, since harmony is basically a batch corrected pca.
+After running harmony, we get a new reduction "harmony", we will use it instead of pca to run neighbors and umap, since harmony is basically a batch corrected pca (oversimplification :p).
 
 ```{r}
 so <- so |> 
@@ -1065,6 +1065,8 @@ MMC reference might be a bit more accurate and reliable for this dataset.
 :::
 
 ::: {.callout-note collapse="true" title="Example annotation" appearance="minimal"}
+This is what claude gave me
+
 | Cluster | General | Granular | Confidence |
 |------------------|------------------|------------------|------------------|
 | 1 | Excitatory neurons | Upper-layer excitatory | high |
@@ -1093,3 +1095,237 @@ MMC reference might be a bit more accurate and reliable for this dataset.
 
 **Confidence:** *high* = methods agree at the granular level, or the only disagreement is because the Zeisel reference lacks the type; *medium* = the cluster mixes sub-types or only some methods support the granular name; *low* = methods disagree, or the cluster is unresolved or mostly one mouse.
 :::
+
+save your work
+
+```{r, eval=FALSE}
+saveRDS(so, "data/seurat_crowell.rds")
+```
+
+# Downstream analysis
+
+Everything so far (QC, doublet removal, normalization, integration, clustering, annotation) is a baseline.
+It took a lot of work, but annotation is rarely the end of a single-cell analysis.
+Once cells have labels, we can start asking the biological questions the experiment was designed for: how does each cell type respond to the treatment, which genes change, do cell type proportions shift, which pathways are involved, and what is new?
+
+## Pseudobulk DGE
+
+This chapter starts with the most common question, differential gene expression (DGE).
+
+You are already familiar with bulk RNA-seq and DESeq worfklow.
+You'll see that pseudobulk is extremely easy and you use what you already know!
+In our DESeq tutorial we tried to compare gene expression across different conditions.
+That case seemed simple, we dealt with a matrix of counts gene x sample.
+In single-cell world, we have another level of complexity: genes, samples/conditions and idividual cells.
+How to deal with all of this?
+One of the common approaches is pseudobulk.
+
+**What is pseudobulk?** For each cell type, we **sum the raw counts** of all cells that come from the same sample.
+A genes × cells matrix becomes a genes × samples matrix per cell type (here 8 mice × \~17,000 genes).
+We then test it with the statistics developed for bulk RNA-seq (edgeR, DESeq2, limma-voom).
+So the only difference between bulk and pseudobulk is that in pseudobulk we have to aggregate counts from all cells across samples.
+The rest of the analysis is virtually the same.
+
+**Why not test cells directly?** Our experiment has 8 mice (4 vs 4), not \~24,000 replicates.
+Cells from the same mouse share genetics, environment and handling, so they are not independent.
+Treating each cell as a replicate (*pseudoreplication*) inflates confidence: methods that ignore replicate variation are biased and can report hundreds of DE genes where no biological difference exists (Squair et al. 2021).
+The number of "significant" genes then follows the number of cells, not the evidence (Murphy et al. 2023).
+Actually we've used a method that treats each cell as a replicate in this analysis.
+`FindAllMarkers` does exactly that and the p-values are inflated.
+For marker identification it's not problematic, since we focus on top markers anyways - we do not investigate all genes, especially across conditions).
+
+**Isn't aggregation counterproductive, given single-cell resolution?** \
+We loose single-cell resolution but we still keep the cell-type resolution.
+We aggregate within a cell type, per mouse.
+What we give up is cell-to-cell variability inside one cell type in one mouse, which doesn't answer the question "does LPS change expression?".
+What we actually gain is that summing fixes sparsity.
+Single-cell counts are mostly zeros.
+Pooling thousands of cells gives well-behaved counts for bulk methods (Squair et al. 2021).
+
+**What we lose.** Subpopulations responding differently within a cell type need finer clusters or a dedicated cell-level analysis.
+Pseudobulk also needs enough cells per mouse per cell type, and enough mice per group.
+In this dataset, clusters dominated by one mouse cannot be tested.
+
+**Is there consensus?** Pseudobulk is the usual default (Crowell et al. 2020, the paper this dataset comes from; Squair et al. 2021).
+Not everyone agrees: Zimmerman et al. 2021 argue it can be conservative and underpowered compared with mixed models.
+The robust, simple choice for a first analysis is pseudobulk.
+
+### Which cell types should be included?
+
+A pseudobulk test compares mice, so a cell type is testable only if enough mice in both conditions contribute enough cells.
+
+**Inclusion/exlusion rules (rules of thumb)**
+
+1.  At least 10 cells per cell type per mouse (arbitrary number).
+
+2.  Cell type/cluster is dominated by one replicate.
+    This suggests a potential sampling issue when preparing libraries, making the results less reliable.
+    It might be better to exclude that cluster
+
+3.  Most of the replicates in each condition contribute to that cell type e.g. 3 out 4 mice.
+
+::: callout-note
+### Exercise 11
+
+Prepare a table(s)/plots of "testable" cell types, based on the criteria above (use the granular annotation).
+And write down cell types that you will use for testing.
+Justify the cell types you excluded.
+:::
+
+### Aggregation
+
+Filter the seurat object to include the cell types you'll be testing
+
+```{r}
+pb <- so
+# pb <- subset(so, cell_anno_column %in% c(...))
+```
+
+Now we aggregate the counts.
+I will aggregate over `cell_ann_tf1` but you should use the curated annotations
+
+```{r}
+pb <- AggregateExpression(pb, assays = "RNA", return.seurat = T,
+                          group.by = c('sample',"cell_ann_tf1", "condition"))
+
+counts <- as.matrix(pb[["RNA"]]$counts)
+mtd <- pb@meta.data
+```
+
+We want to check the effect of LPS in multiple cell types.
+We will run multiple different contrasts in DESeq.
+e.g.
+
+- microglia LPS vs migroglia WT
+
+- oligodendrocytes LPS vs oligodendrocytes WT etc.
+
+It will be easier for us if we create additional column that combines cell type and condition
+
+```{r}
+mtd$celltype_condition <- paste0(mtd$cell_ann_tf1, "_", mtd$condition)
+mtd
+```
+
+### DESeq2
+
+Now this is the part you are already familiar with!
+The level of complexity is slightly higher, because there will be multiple comparisons using one dds.
+
+::: callout-note
+### Exercise 12
+
+Run standard deseq2 preprocessing:
+
+1.  Filtering out low count genes. It might be easier to use filter by expression from edgeR and supply your contrast.
+2.  Include only protein coding genes. Exclude mitochondrial, ribosomal genes. Remember that this is mouse data. Check annotables what dataframe is used for mouse reference.
+3.  Create dds with `~celltype_condition` design.
+4.  Run PCA. Make sure to describe the results, e.g separation by condition, do biological reps cluster together, separation by cell type. Which factor acts stronger on sample separation: cell type or treatment? Think of potential reasons why. Is it concerning or expected? Are there any sources of variation that cannot be associated with neither treatment or cell type?
+:::
+
+To run multiple different comparisons, it would be cumbersome to copy-paste the same code and change contrast each time.
+Utilize for loops (or other loop like functions)!
+
+```{r, eval=FALSE}
+# change the cell type column name accordingly
+contrasts <- mtd %>%
+  dplyr::distinct(cell_ann_tf1) %>%
+  dplyr::mutate(
+    contrast_name = (paste0(cell_ann_tf1, "_LPS_vs_WT")),
+    contrast = purrr::map(cell_ann_tf1,
+                          ~ c("celltype_condition", paste0(.x, "_LPS"), paste0(.x, "_WT")))
+  )
+rownames(contrasts) <- contrasts$contrast_name
+contrasts
+contrasts$contrast
+```
+
+```{r, eval=FALSE}
+library(DESeq2)
+dds <- DESeqDataSetFromMatrix(counts, mtd, design = ~celltype_condition)
+dds <- DESeq(dds)
+```
+
+Generally in pseudobulk you'll get fewer DEGs, bc bulk is more powered.
+That depends on particular dataset, treatment etc.
+It might be better to use p.adj cutoff \< 0.1.
+We can run `lfcShrink` without running results first.
+We cannot then adjust parameters such as alpha (0.1 by default), which is fine because we use our custom filtering functions anyways.
+
+You can use lapply to convert the results to df, and apply your custom function (to have diffexpr column etc).
+
+```{r, eval=FALSE}
+res_list <- map(contrasts$contrast,
+                ~ lfcShrink(dds, contrast = .x, type = "ashr")) 
+names(res_list) <- contrasts$contrast_name
+```
+
+```{r, eval=FALSE}
+lapply(res_list, summary)
+```
+
+You can use lapply to convert the results to df, and apply your custom function (to have diffexpr column etc).
+
+```{r, eval=FALSE}
+# res_list <- lapply(res_list, your function, additional parameters if necessary)
+```
+
+::: callout-note
+### Exercise 13
+
+For each contrast, plot the distribution of nominal p-values.
+In your opinion, the tests ran correctly?
+:::
+
+```{r, eval=FALSE}
+# make a combined dataframe of all results. contrast column helps distinguish the results 
+res_df <- imap_dfr(res_list, ~ .x %>% dplyr::mutate(contrast = .y))
+```
+
+::: callout-note
+### Exercise 14
+
+Which cell types show the biggest response to LPS treatment?
+Show a barplot with a number of DEGs in each contrast.
+:::
+
+```{r, eval=FALSE}
+# ggplot(res_df, ...) +
+  # facet_wrap(~contrast)
+```
+
+::: callout-note
+### Exercise 15
+
+Focus on 2 cell types that show biggest response.
+
+1.  What is the overlap of DEGs between them? Show the overlap on venn diagram
+2.  Do the DEGs show the same directionality?
+    1.  Show relation of log2FC between the two contrasts
+    2.  Color the dots whether they are DEGs in x, in y, in both, NS. What is the correlation in each group and global correlation (w/o group stratification)?
+3.  Run GSEA analysis for each contrast (look up clusterProfiler tutorial; make sure to rank genes by their Log2FC)
+4.  Comment on the results
+:::
+
+::: callout-note
+## Exercise 16
+
+Pseudobulk DGE is not the only type of analysis that can be done.
+Look up 3 other types of analyses (downstream of cell annotation) that are commonly used in single cell data.
+They don't have to necessarily apply to this dataset.
+Write a few words about each of them!
+:::
+
+# Summary
+
+Congratulations, you made it till the end!
+This was a lot of work, but hopefully this tutorial showed you how real life single-cell data analysis might look like.
+
+As a last exercise, compile the results into multipanel figures.
+Do not include everything, just the essential steps.
+Write a few words summarizing the analysis.
+What are the main observations and conclusions?
+Where you able to answer the initial biological questions?
+
+Which parts of this tutorial did you find most useful?
+Which parts where the hardest to understand?
