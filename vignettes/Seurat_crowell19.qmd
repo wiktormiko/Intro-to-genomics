@@ -194,7 +194,6 @@ $$\text{outlier if } |x - \text{median}(x)| > n \times \text{MAD}(x)$$
 A few practical points:
 
 - **Run it per sample.** Each sample gets its own median and MAD, so the thresholds adapt to the sample. That is what makes it work for 8 samples, or 30, without setting cutoffs by hand.
-- **Use the right side.** For the number of counts and the number of genes, only low values are a problem (empty droplets, damaged cells). For the percent of mitochondrial reads, only high values are a problem (dying cells).
 - **Log-transform counts and genes first.** Their distributions are skewed, so MADs work better on the log scale.
 - **The number of MADs is a choice.** 3 is a common default, and 5 is more permissive. Look at the plots to check that the thresholds make sense.
 
@@ -207,7 +206,7 @@ so <- PercentageFeatureSet(so, pattern = '^mt-', col.name = "mito.percent") # mt
 Let's first see how the distributions for each metric look before we do anything.
 I'm feeling fancy and want to make my own plots.
 
-```{r}
+```{r, multi_qc_plot}
 multi_qc_plot <- function(seurat_obj, sample_col = 'orig.ident', metrics=c("nCount_RNA", 'nFeature_RNA', 'mito.percent') ,log_metrics = c("nCount_RNA", 'nFeature_RNA'), zoom_quantile = 0.95) {
   
   df <- seurat_obj[[]]
@@ -1068,7 +1067,7 @@ MMC reference might be a bit more accurate and reliable for this dataset.
 This is what Claude gave me.
 
 | Cluster | General | Granular | Confidence |
-|----|----|----|----|
+|------------------|------------------|------------------|------------------|
 | 1 | Excitatory neurons | Upper-layer excitatory | high |
 | 2 | Excitatory neurons | Layer 6 excitatory (to thalamus) | high |
 | 3 | Excitatory neurons | Mid-layer excitatory | medium |
@@ -1149,6 +1148,9 @@ In this dataset, clusters dominated by one mouse cannot be tested.
 **Is there consensus?** Pseudobulk is the usual default (Crowell et al. 2020, the paper this dataset comes from; Squair et al. 2021).
 Not everyone agrees: Zimmerman et al. 2021 argue it can be conservative and underpowered compared with mixed models.
 The robust, simple choice for a first analysis is pseudobulk.
+
+In this tutorial, we will aggregate the counts and run DGE analysis with DESeq2, but it is worth noting that this is not the only way to do it.
+There are other tools that have been made for single-cell pseudobulk analysis, such as [`dreamlet`](https://www.nature.com/articles/s41467-026-75680-8).
 
 ### Which cell types should be included?
 
