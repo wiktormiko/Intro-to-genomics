@@ -1,6 +1,6 @@
 ---
 title: "Seurat workflow: Integration"
-description: "Single-cell RNA-seq analysis Part II: Doublet detection, integration, pseudobulk"
+description: "Single-cell RNA-seq analysis Part II: Doublet detection, integration, reference-based annotation, pseudobulk"
 author: "Wiktor Mikolajczak"
 editor: visual
 ---
@@ -16,9 +16,11 @@ knitr::opts_chunk$set(
 
 # Note
 
-Introduction to Seurat workflow
+This vignette is based on [Seurat - Introduction to integration](https://satijalab.org/seurat/articles/integration_introduction).
 
-This vignette is based on [Seurat - Guided clustering tutorial](https://satijalab.org/seurat/articles/pbmc3k_tutorial).
+For more in-depth explanation I HIGHLY recommend checking [Single-cell best practices](https://www.sc-best-practices.org/).
+It covers lots of topics!
+Their code implementation is in python, but many of these concepts and steps are similar.
 
 Use this vignette as a general guideline, not a ground truth.
 There is no one way to analyze genomics data.
@@ -39,9 +41,35 @@ It is vital that, before any analysis, you familiarize yourself with the data se
 Instead of just copy-pasting the code, try implementing the following logic:
 
 1.  Read the vignette first. Try to understand each step.
-2.  Without looking at the vignette, write down the main steps of the workflow (use headers to build an outline of your document at the same time). For each step, write a short comment: What is this step for? Why is it important? Compare your answers with the vignette. It is OK if you don't remember the exact code or the name of the functions. It's more important that you understand each step conceptually.
-3.  After each step write down your observations. What has changed?
-4.  At the end of your analysis, think about and write down conclusions. It doesn't have to be an academic essay but try to state the main points and do a little bit of googling.
+
+2.  Without looking at the vignette, write down the main steps of the workflow (use headers to build an outline of your document at the same time). For each step, write a short comment: What is this step for? Why is it important? Compare your answers with the vignette.
+
+3.  Try to implement each step in code yourself. Use the vignette as a reference, and read the documentation (?FunctionName) to understand the arguments you are using. Build the code up in small chunks and run them one at a time. Inspect the object after each chunk (e.g. head(), dim(), str()) to check that the code did what you expected. When you try to write more complex code, it often helps to write it in plain English, what each line should (pseudocode) (example below). Then you can think or look up which function would do that in R. It is OK if you don't remember the exact code or the name of the functions. It's more important that you understand each step conceptually.
+
+    ```         
+    # Goal: a function that calculates GC content in a given sequence
+    FUNCTION gc_content(sequence): 
+    sequence ← convert sequence to uppercase 
+    gc_count ← 0 
+    valid_count ← 0
+    FOR each base IN sequence:
+        IF base is "G" or "C":
+            gc_count ← gc_count + 1
+            valid_count ← valid_count + 1
+        ELSE IF base is "A" or "T":
+            valid_count ← valid_count + 1
+        // any other symbol (e.g., "N") is ignored
+
+    IF valid_count = 0:
+        RETURN error("no valid bases")
+
+    RETURN gc_count / valid_count
+    ```
+
+4.  After each step write down your observations. What has changed?
+
+5.  At the end of your analysis, think about and write down conclusions. It doesn't have to be an academic essay but try to state the main points and do a little bit of googling.
+
     - Are you able to answer the initial research question and confirm/deny the hypotheses?
     - Try to connect what is known with what you have found.
 
@@ -49,8 +77,6 @@ The goal of this training is to help you understand the general workflow of sing
 Although using AI can be beneficial and speed up your analysis, it is important that you have a good understanding of topics covered in this training and you have truly mastered the skill.
 Only then you can use AI to help you with the analysis.
 It is fine to ask AI to help you with customizing a ggplot, but try not to use it for the actual analysis.
-
-If you don't know what a function does, run `?function_name` in the Console.
 
 # About the dataset
 
@@ -517,13 +543,26 @@ That's why we often use **integration**, when we are dealing with multiple sampl
 
 ## What is integration and why do we need it?
 
-Cells from different samples differ for technical reasons (library prep, sequencing depth, processing day) as well as biological ones (donor, genotype, condition).
-If we ignore this, cells often cluster by sample instead of by cell type, and the same cell type from two samples ends up in separate clusters.
-This is the classic **batch effect**.
+A classical batch effec**t** is technical, discrete, affects most cell types in a similar way, and is not confounded with biology.
+Examples are a sequencing run, a library prep day, etc.
+For these we do not need single-cell-specific machinery.
+We can model the batch directly: `~ batch + condition` ComBat-style adjustment.
+Similar to what we do in DESeq2.
 
 Integration is not only about technical batches.
 Even when there is no obvious batch, e.g. every sample was prepared separately, or all were processed together, we usually still integrate.
-Each sample (donor, animal, condition) is its own source of variation, and we want to line up the shared cell types across samples regardless of where the variation comes from.
+In most single-cell datasets, what separates samples is not a classical batch effect:
+
+- Donors differ in genotype, age, sex, and disease history.
+  It's biology driven, not technical batch.
+
+- Technical effects can be cell-type-specific (e.g. dissociation stress or ambient RNA affect fragile or abundant cell types unequally).
+
+- Cell-type composition differs between samples, sometimes because of the treatment itself.
+
+- Sample, donor, and condition are often nested or confounded.
+
+Each sample has its own source of variation, and we want to line up the shared cell types across samples regardless of where the variation comes from.
 Here, integration means aligning shared cell populations across samples, and it is not limited to removing technical noise.
 
 **Integration** removes this sample-specific variation so that cells of the same type from different samples overlap in a shared low-dimensional space.
@@ -538,6 +577,18 @@ There are many integration methods, each suited for a different scenario.
 Sometimes we may need a harsh integration if we, for example, re-analyze public data and want to combine samples from different studies.
 Other times, our genetic knock-out or treatment may alter cell type composition and there might be a small subpopulation that is specific to one condition.
 If our integration method is too aggressive, that rare cell population might be blended with similar cell types and we ultimately lose that condition-specific rare cell type.
+
+### Considerations for integration
+
+- **Check whether it's needed.** Visualize first. Correction can mask real biology.
+- **Know your design.** If condition is aligned with batch, no method can separate them.
+- **The covariate defines what is removed.** Finer batches remove more, including real biology.
+- **Every method assumes something.** Typical assumptions are shared cell types across batches and a batch effect that is orthogonal to biology.
+- **Batch removal trades off against biology.** Rare or condition-specific populations can be lost.
+- **Embedding-based methods correct the embedding, not the counts.**
+- **Don't trust the UMAP alone.** Check markers, rare populations, and preserved within-batch structure.
+
+[sc-best-practices.org (integration chapter)](https://www.sc-best-practices.org/cellular-structure/integration/)
 
 ### General approaches
 

@@ -20,6 +20,10 @@ Introduction to Seurat workflow
 
 This vignette is based on [Seurat - Guided clustering tutorial](https://satijalab.org/seurat/articles/pbmc3k_tutorial).
 
+For more in-depth explanation I HIGHLY recommend checking [Single-cell best practices](https://www.sc-best-practices.org/).
+It covers lots of topics!
+Their code implementation is in python, but many of these concepts and steps are similar.
+
 Use this vignette as a general guideline, not a ground truth.
 There is no one way to analyze genomics data.
 Sometimes you have to adjust your analysis based on your research question, experimental design etc.
@@ -39,9 +43,35 @@ It is vital that, before any analysis, you familiarize yourself with the data se
 Instead of just copy-pasting the code, try implementing the following logic:
 
 1.  Read the vignette first. Try to understand each step.
-2.  Without looking at the vignette, write down the main steps of the workflow (use headers to build an outline of your document at the same time). For each step, write a short comment: What is this step for? Why is it important? Compare your answers with the vignette. It is OK if you don't remember the exact code or the name of the functions. It's more important that you understand each step conceptually.
-3.  After each step write down your observations. What has changed?
-4.  At the end of your analysis, think about and write down conclusions. It doesn't have to be an academic essay but try to state the main points and do a little bit of googling.
+
+2.  Without looking at the vignette, write down the main steps of the workflow (use headers to build an outline of your document at the same time). For each step, write a short comment: What is this step for? Why is it important? Compare your answers with the vignette.
+
+3.  Try to implement each step in code yourself. Use the vignette as a reference, and read the documentation (?FunctionName) to understand the arguments you are using. Build the code up in small chunks and run them one at a time. Inspect the object after each chunk (e.g. head(), dim(), str()) to check that the code did what you expected. When you try to write more complex code, it often helps to write it in plain English, what each line should (pseudocode) (example below). Then you can think or look up which function would do that in R. It is OK if you don't remember the exact code or the name of the functions. It's more important that you understand each step conceptually.
+
+    ```         
+    # Goal: a function that calculates GC content in a given sequence
+    FUNCTION gc_content(sequence): 
+    sequence ← convert sequence to uppercase 
+    gc_count ← 0 
+    valid_count ← 0
+    FOR each base IN sequence:
+        IF base is "G" or "C":
+            gc_count ← gc_count + 1
+            valid_count ← valid_count + 1
+        ELSE IF base is "A" or "T":
+            valid_count ← valid_count + 1
+        // any other symbol (e.g., "N") is ignored
+
+    IF valid_count = 0:
+        RETURN error("no valid bases")
+
+    RETURN gc_count / valid_count
+    ```
+
+4.  After each step write down your observations. What has changed?
+
+5.  At the end of your analysis, think about and write down conclusions. It doesn't have to be an academic essay but try to state the main points and do a little bit of googling.
+
     - Are you able to answer the initial research question and confirm/deny the hypotheses?
     - Try to connect what is known with what you have found.
 
@@ -1075,7 +1105,7 @@ Prepare a figure showing:
 
 ::: {.callout-note collapse="true" title="Show example answer"}
 | Cell type | Typical proportion (of PBMC) | Canonical markers | Cluster(s) |
-|----|----|----|----|
+|------------------|------------------|------------------|------------------|
 | Naive CD4+ T | \~15-30% | CCR7, SELL, TCF7, LEF1, IL7R (low) | 1 and 2? |
 | Memory CD4+ T | \~15-25% | IL7R, S100A4, CD40LG, AQP3 | 2? |
 | CD8+ T (effector/memory) | \~5-15% | CD8A, CD8B, GZMK, CCL5, GZMH | 4 |
